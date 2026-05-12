@@ -49,12 +49,12 @@ export default function Categorias() {
     carregar();
   };
 
-  const handleDragStart = (e, projetoId) => {
+const handleDragStart = (e, projetoId) => {
   if (usuario?.tipo === 'aluno' || usuario?.tipo === 'professor') return;
   e.dataTransfer.setData('projetoId', projetoId);
 };
 
-  const handleDrop = async (e, categoriaId) => {
+const handleDrop = async (e, categoriaId) => {
   if (usuario?.tipo === 'aluno' || usuario?.tipo === 'professor') return;
   e.preventDefault();
   setDragOver(null);
