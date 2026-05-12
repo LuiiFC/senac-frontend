@@ -26,48 +26,222 @@ export default function Login() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={styles.logo}>
-          <span style={styles.logoText}>SENAC</span>
-          <p style={styles.logoSub}>Sistema de Projetos Integrados</p>
+      {/* Overlay escuro */}
+      <div style={styles.overlay} />
+
+      {/* Conteúdo */}
+      <div style={styles.content}>
+        {/* Logo */}
+        <div style={styles.logoArea}>
+          <div style={styles.logoBox}>
+            <span style={styles.logoS}>S</span>
+            <span style={styles.logoEnac}>enac</span>
+          </div>
         </div>
-        <form onSubmit={handleSubmit}>
-          <div style={styles.field}>
-            <label style={styles.label}>Email</label>
-            <input style={styles.input} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" required />
+
+        <h1 style={styles.titulo}>Área do Aluno</h1>
+        <p style={styles.bemVindo}>Seja bem vindo.</p>
+        <p style={styles.instrucao}>Faça o login para ter acesso à sua conta.</p>
+
+        <form onSubmit={handleSubmit} style={styles.form}>
+          <div style={styles.inputBox}>
+            <label style={styles.inputLabel}>Informe seu e-mail *</label>
+            <input
+              style={styles.input}
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+            />
+            {email && (
+              <button type="button" style={styles.clearBtn} onClick={() => setEmail('')}>✕</button>
+            )}
           </div>
-          <div style={styles.field}>
-            <label style={styles.label}>Senha</label>
-            <input style={styles.input} type="password" value={senha} onChange={e => setSenha(e.target.value)} placeholder="••••••••" required />
+
+          <div style={styles.inputBox}>
+            <label style={styles.inputLabel}>Senha *</label>
+            <input
+              style={styles.input}
+              type="password"
+              value={senha}
+              onChange={e => setSenha(e.target.value)}
+              required
+            />
+            {senha && (
+              <button type="button" style={styles.clearBtn} onClick={() => setSenha('')}>✕</button>
+            )}
           </div>
+
           {erro && <p style={styles.erro}>{erro}</p>}
+
           <button style={styles.btn} type="submit" disabled={loading}>
-            {loading ? 'Entrando...' : 'Entrar'}
+            {loading ? 'ENTRANDO...' : 'ENTRAR'}
           </button>
-          <p style={styles.linkText}>
-            <Link to="/esqueceu-senha" style={{ color: '#888', fontSize: 13, fontFamily: 'sans-serif' }}>
-              Esqueceu sua senha?
-            </Link>
-          </p>
-          <p style={styles.linkText}>
-            Aluno? <Link to="/registro" style={{ color: '#C8102E', fontWeight: 600 }}>Cadastre-se aqui</Link>
-          </p>
         </form>
+
+        <div style={styles.links}>
+          <Link to="/esqueceu-senha" style={styles.linkEsqueceu}>
+            Esqueceu o e-mail ou a senha?
+          </Link>
+          <p style={styles.cadastroText}>
+            Aluno? <Link to="/registro" style={styles.linkCadastro}>Cadastre-se aqui</Link>
+          </p>
+        </div>
       </div>
     </div>
   );
 }
 
 const styles = {
-  container: { minHeight: '100vh', background: '#C8102E', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  card: { background: '#fff', borderRadius: 16, padding: 40, width: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' },
-  logo: { textAlign: 'center', marginBottom: 32 },
-  logoText: { background: '#C8102E', color: '#fff', fontWeight: 700, fontSize: 28, padding: '6px 20px', borderRadius: 8, fontFamily: 'sans-serif' },
-  logoSub: { color: '#666', fontSize: 13, marginTop: 10, fontFamily: 'sans-serif' },
-  field: { marginBottom: 16 },
-  label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#333', marginBottom: 6, fontFamily: 'sans-serif' },
-  input: { width: '100%', padding: '10px 14px', border: '1.5px solid #ddd', borderRadius: 8, fontSize: 14, fontFamily: 'sans-serif', outline: 'none', boxSizing: 'border-box' },
-  erro: { color: '#C8102E', fontSize: 13, marginBottom: 12, fontFamily: 'sans-serif' },
-  btn: { width: '100%', padding: '12px', background: '#C8102E', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'sans-serif', marginBottom: 12 },
-  linkText: { textAlign: 'center', fontSize: 13, fontFamily: 'sans-serif', color: '#666', margin: '8px 0 0' },
+  container: {
+    minHeight: '100vh',
+    background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 70%, #533483 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+    fontFamily: 'sans-serif',
+  },
+  overlay: {
+    position: 'absolute',
+    inset: 0,
+    background: 'rgba(0,0,0,0.45)',
+  },
+  content: {
+    position: 'relative',
+    zIndex: 1,
+    width: '100%',
+    maxWidth: 480,
+    padding: '0 32px',
+  },
+  logoArea: {
+    marginBottom: 24,
+  },
+  logoBox: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 2,
+  },
+  logoS: {
+    background: 'linear-gradient(135deg, #FF6B35, #F7931E)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    fontSize: 48,
+    fontWeight: 900,
+    fontFamily: 'sans-serif',
+    lineHeight: 1,
+  },
+  logoEnac: {
+    color: '#4A9EDB',
+    fontSize: 40,
+    fontWeight: 700,
+    fontFamily: 'sans-serif',
+    lineHeight: 1,
+  },
+  titulo: {
+    color: '#fff',
+    fontSize: 36,
+    fontWeight: 700,
+    margin: '0 0 8px',
+    fontFamily: 'sans-serif',
+  },
+  bemVindo: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 16,
+    margin: '0 0 4px',
+    fontFamily: 'sans-serif',
+  },
+  instrucao: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    margin: '0 0 32px',
+    fontFamily: 'sans-serif',
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 16,
+  },
+  inputBox: {
+    position: 'relative',
+    background: 'rgba(255,255,255,0.95)',
+    borderRadius: 12,
+    padding: '12px 16px',
+  },
+  inputLabel: {
+    display: 'block',
+    color: '#4A9EDB',
+    fontSize: 13,
+    fontWeight: 600,
+    marginBottom: 4,
+    fontFamily: 'sans-serif',
+  },
+  input: {
+    width: '100%',
+    border: 'none',
+    outline: 'none',
+    fontSize: 15,
+    background: 'transparent',
+    color: '#1A1A1A',
+    fontFamily: 'sans-serif',
+    boxSizing: 'border-box',
+    paddingRight: 24,
+  },
+  clearBtn: {
+    position: 'absolute',
+    right: 16,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    background: 'transparent',
+    border: 'none',
+    color: '#999',
+    cursor: 'pointer',
+    fontSize: 14,
+    padding: 0,
+  },
+  erro: {
+    color: '#FF6B6B',
+    fontSize: 13,
+    margin: 0,
+    fontFamily: 'sans-serif',
+  },
+  btn: {
+    background: '#4A9EDB',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 12,
+    padding: '16px',
+    fontSize: 16,
+    fontWeight: 700,
+    cursor: 'pointer',
+    letterSpacing: 1,
+    fontFamily: 'sans-serif',
+    marginTop: 8,
+    transition: 'background 0.2s',
+  },
+  links: {
+    marginTop: 24,
+    textAlign: 'center',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+  },
+  linkEsqueceu: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 14,
+    textDecoration: 'underline',
+    fontFamily: 'sans-serif',
+  },
+  cadastroText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    margin: 0,
+    fontFamily: 'sans-serif',
+  },
+  linkCadastro: {
+    color: '#F7931E',
+    fontWeight: 600,
+    textDecoration: 'none',
+  },
 };
