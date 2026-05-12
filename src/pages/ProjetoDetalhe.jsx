@@ -30,7 +30,10 @@ export default function ProjetoDetalhe() {
 
   if (!projeto) return <div style={{ padding: 40, fontFamily: 'sans-serif' }}>Carregando...</div>;
 
-  const media = avaliacoes.length ? (avaliacoes.reduce((s, a) => s + (a.nota || 0), 0) / avaliacoes.length).toFixed(1) : '—';
+const avaliacoesComNota = avaliacoes.filter(a => a.nota !== null && a.nota !== undefined);
+const media = avaliacoesComNota.length 
+  ? (avaliacoesComNota.reduce((s, a) => s + a.nota, 0) / avaliacoesComNota.length).toFixed(1) 
+  : '—';
 
   return (
     <div style={styles.layout}>
