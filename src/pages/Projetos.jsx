@@ -65,9 +65,13 @@ export default function Projetos() {
       <main style={styles.main}>
         <div style={styles.header}>
           <h1 style={styles.titulo}>Projetos</h1>
-          {(usuario?.tipo === 'coordenador' || usuario?.tipo === 'professor') && (
-  <button style={styles.btn} onClick={() => setMostrarForm(!mostrarForm)}>+ Novo Projeto</button>
-          )}
+         {(usuario?.tipo === 'coordenador' || 
+          usuario?.tipo === 'professor' || 
+          usuario?.tipo === 'aluno') && (
+          <button style={styles.btn} onClick={() => setMostrarForm(!mostrarForm)}>
+          + Novo Projeto
+          </button>
+        )}
         </div>
 
         {mostrarForm && (
