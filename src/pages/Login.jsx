@@ -7,6 +7,7 @@ export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [mostrarSenha, setMostrarSenha] = useState(false);
   const [erro, setErro] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -26,65 +27,78 @@ export default function Login() {
 
   return (
     <div style={styles.container}>
-      {/* Overlay escuro */}
-      <div style={styles.overlay} />
-
-      {/* Conteúdo */}
-      <div style={styles.content}>
-        {/* Logo */}
-        <div style={styles.logoArea}>
-          <div style={styles.logoBox}>
-            <span style={styles.logoS}>S</span>
-            <span style={styles.logoEnac}>enac</span>
+      {/* Lado esquerdo — imagem e texto */}
+      <div style={styles.left}>
+        <div style={styles.leftOverlay} />
+        <div style={styles.leftContent}>
+          <div style={styles.logoArea}>
+            <span style={styles.logoIcone}>🎓</span>
+            <span style={styles.logoNome}>Senac</span>
           </div>
+          <h1 style={styles.leftTitulo}>Observatório de<br />Projetos Integradores</h1>
+          <p style={styles.leftDesc}>Centralize, avalie e compartilhe projetos acadêmicos de forma profissional.</p>
         </div>
+      </div>
 
-        <h1 style={styles.titulo}>Área do Aluno</h1>
-        <p style={styles.bemVindo}>Seja bem vindo.</p>
-        <p style={styles.instrucao}>Faça o login para ter acesso à sua conta.</p>
+      {/* Lado direito — formulário */}
+      <div style={styles.right}>
+        <div style={styles.formBox}>
+          <h2 style={styles.titulo}>Bem-vindo de volta</h2>
+          <p style={styles.subtitulo}>Entre com suas credenciais para acessar o sistema</p>
 
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.inputBox}>
-            <label style={styles.inputLabel}>Informe seu e-mail *</label>
-            <input
-              style={styles.input}
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-            />
-            {email && (
-              <button type="button" style={styles.clearBtn} onClick={() => setEmail('')}>✕</button>
-            )}
-          </div>
+          <form onSubmit={handleSubmit} style={styles.form}>
+            <div style={styles.field}>
+              <label style={styles.label}>E-mail</label>
+              <input
+                style={styles.input}
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="seu@email.com"
+                required
+              />
+            </div>
 
-          <div style={styles.inputBox}>
-            <label style={styles.inputLabel}>Senha *</label>
-            <input
-              style={styles.input}
-              type="password"
-              value={senha}
-              onChange={e => setSenha(e.target.value)}
-              required
-            />
-            {senha && (
-              <button type="button" style={styles.clearBtn} onClick={() => setSenha('')}>✕</button>
-            )}
-          </div>
+            <div style={styles.field}>
+              <label style={styles.label}>Senha</label>
+              <div style={styles.senhaBox}>
+                <input
+                  style={{ ...styles.input, paddingRight: 40 }}
+                  type={mostrarSenha ? 'text' : 'password'}
+                  value={senha}
+                  onChange={e => setSenha(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  style={styles.olhoBtn}
+                  onClick={() => setMostrarSenha(!mostrarSenha)}
+                >
+                  {mostrarSenha ? '🙈' : '👁️'}
+                </button>
+              </div>
+            </div>
 
-          {erro && <p style={styles.erro}>{erro}</p>}
+            {erro && <p style={styles.erro}>{erro}</p>}
 
-          <button style={styles.btn} type="submit" disabled={loading}>
-            {loading ? 'ENTRANDO...' : 'ENTRAR'}
-          </button>
-        </form>
+            <div style={styles.rowLinks}>
+              <label style={styles.lembrar}>
+                <input type="checkbox" style={{ marginRight: 6 }} />
+                Lembrar-me
+              </label>
+              <Link to="/esqueceu-senha" style={styles.linkEsqueceu}>
+                Esqueceu a senha?
+              </Link>
+            </div>
 
-        <div style={styles.links}>
-          <Link to="/esqueceu-senha" style={styles.linkEsqueceu}>
-            Esqueceu o e-mail ou a senha?
-          </Link>
+            <button style={styles.btn} type="submit" disabled={loading}>
+              {loading ? 'Entrando...' : 'Entrar'}
+            </button>
+          </form>
+
           <p style={styles.cadastroText}>
-            Aluno? <Link to="/registro" style={styles.linkCadastro}>Cadastre-se aqui</Link>
+            Aluno novo? <Link to="/registro" style={styles.linkCadastro}>Cadastre-se aqui</Link>
           </p>
         </div>
       </div>
@@ -94,66 +108,85 @@ export default function Login() {
 
 const styles = {
   container: {
+    display: 'flex',
     minHeight: '100vh',
-    background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 70%, #533483 100%)',
+    fontFamily: 'sans-serif',
+  },
+  left: {
+    flex: 1,
+    backgroundImage: `url(https://otlmklanmznssostkrjb.supabase.co/storage/v1/object/public/assets/unidades-idiomas.jpg)`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'flex-end',
+    padding: 40,
+  },
+  leftOverlay: {
+    position: 'absolute',
+    inset: 0,
+    background: 'linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.65) 100%)',
+  },
+  leftContent: {
+    position: 'relative',
+    zIndex: 1,
+  },
+  logoArea: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 24,
+    position: 'absolute',
+    top: -320,
+    left: 0,
+  },
+  logoIcone: {
+    fontSize: 20,
+    color: '#fff',
+  },
+  logoNome: {
+    color: '#fff',
+    fontWeight: 700,
+    fontSize: 18,
+    fontFamily: 'sans-serif',
+  },
+  leftTitulo: {
+    color: '#fff',
+    fontSize: 32,
+    fontWeight: 700,
+    margin: '0 0 12px',
+    lineHeight: 1.3,
+    fontFamily: 'sans-serif',
+  },
+  leftDesc: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 14,
+    lineHeight: 1.6,
+    margin: 0,
+    maxWidth: 320,
+    fontFamily: 'sans-serif',
+  },
+  right: {
+    width: 420,
+    background: '#fff',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
-    overflow: 'hidden',
-    fontFamily: 'sans-serif',
+    padding: 40,
+    flexShrink: 0,
   },
-  overlay: {
-    position: 'absolute',
-    inset: 0,
-    background: 'rgba(0,0,0,0.45)',
-  },
-  content: {
-    position: 'relative',
-    zIndex: 1,
+  formBox: {
     width: '100%',
-    maxWidth: 480,
-    padding: '0 32px',
-  },
-  logoArea: {
-    marginBottom: 24,
-  },
-  logoBox: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 2,
-  },
-  logoS: {
-    background: 'linear-gradient(135deg, #FF6B35, #F7931E)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    fontSize: 48,
-    fontWeight: 900,
-    fontFamily: 'sans-serif',
-    lineHeight: 1,
-  },
-  logoEnac: {
-    color: '#4A9EDB',
-    fontSize: 40,
-    fontWeight: 700,
-    fontFamily: 'sans-serif',
-    lineHeight: 1,
   },
   titulo: {
-    color: '#fff',
-    fontSize: 36,
+    fontSize: 24,
     fontWeight: 700,
+    color: '#1A1A1A',
     margin: '0 0 8px',
     fontFamily: 'sans-serif',
   },
-  bemVindo: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 16,
-    margin: '0 0 4px',
-    fontFamily: 'sans-serif',
-  },
-  instrucao: {
-    color: 'rgba(255,255,255,0.7)',
+  subtitulo: {
+    color: '#666',
     fontSize: 14,
     margin: '0 0 32px',
     fontFamily: 'sans-serif',
@@ -163,84 +196,91 @@ const styles = {
     flexDirection: 'column',
     gap: 16,
   },
-  inputBox: {
-    position: 'relative',
-    background: 'rgba(255,255,255,0.95)',
-    borderRadius: 12,
-    padding: '12px 16px',
+  field: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
   },
-  inputLabel: {
-    display: 'block',
-    color: '#4A9EDB',
+  label: {
     fontSize: 13,
     fontWeight: 600,
-    marginBottom: 4,
+    color: '#444',
     fontFamily: 'sans-serif',
   },
   input: {
-    width: '100%',
-    border: 'none',
-    outline: 'none',
-    fontSize: 15,
-    background: 'transparent',
-    color: '#1A1A1A',
+    padding: '12px 14px',
+    border: '1.5px solid #E0E0E0',
+    borderRadius: 8,
+    fontSize: 14,
     fontFamily: 'sans-serif',
+    outline: 'none',
+    width: '100%',
     boxSizing: 'border-box',
-    paddingRight: 24,
+    color: '#1A1A1A',
   },
-  clearBtn: {
+  senhaBox: {
+    position: 'relative',
+  },
+  olhoBtn: {
     position: 'absolute',
-    right: 16,
+    right: 12,
     top: '50%',
     transform: 'translateY(-50%)',
     background: 'transparent',
     border: 'none',
-    color: '#999',
     cursor: 'pointer',
-    fontSize: 14,
+    fontSize: 16,
     padding: 0,
   },
+  rowLinks: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: -4,
+  },
+  lembrar: {
+    display: 'flex',
+    alignItems: 'center',
+    fontSize: 13,
+    color: '#555',
+    cursor: 'pointer',
+    fontFamily: 'sans-serif',
+  },
+  linkEsqueceu: {
+    color: '#E87722',
+    fontSize: 13,
+    fontWeight: 600,
+    textDecoration: 'none',
+    fontFamily: 'sans-serif',
+  },
   erro: {
-    color: '#FF6B6B',
+    color: '#C8102E',
     fontSize: 13,
     margin: 0,
     fontFamily: 'sans-serif',
   },
   btn: {
-    background: '#4A9EDB',
+    background: '#E87722',
     color: '#fff',
     border: 'none',
-    borderRadius: 12,
-    padding: '16px',
-    fontSize: 16,
-    fontWeight: 700,
+    borderRadius: 8,
+    padding: '14px',
+    fontSize: 15,
+    fontWeight: 600,
     cursor: 'pointer',
-    letterSpacing: 1,
     fontFamily: 'sans-serif',
     marginTop: 8,
-    transition: 'background 0.2s',
-  },
-  links: {
-    marginTop: 24,
-    textAlign: 'center',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-  },
-  linkEsqueceu: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 14,
-    textDecoration: 'underline',
-    fontFamily: 'sans-serif',
+    letterSpacing: 0.5,
   },
   cadastroText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    margin: 0,
+    textAlign: 'center',
+    fontSize: 13,
+    color: '#666',
+    margin: '24px 0 0',
     fontFamily: 'sans-serif',
   },
   linkCadastro: {
-    color: '#F7931E',
+    color: '#E87722',
     fontWeight: 600,
     textDecoration: 'none',
   },
