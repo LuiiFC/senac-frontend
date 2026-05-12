@@ -50,16 +50,20 @@ export default function Categorias() {
   };
 
   const handleDragStart = (e, projetoId) => {
-    e.dataTransfer.setData('projetoId', projetoId);
-  };
+  if (usuario?.tipo === 'aluno' || usuario?.tipo === 'professor') return;
+  e.dataTransfer.setData('projetoId', projetoId);
+};
 
   const handleDrop = async (e, categoriaId) => {
-    e.preventDefault();
-    setDragOver(null);
-    const projetoId = e.dataTransfer.getData('projetoId');
-    await api.patch(`/projetos/${projetoId}/categoria`, { categoria_id: categoriaId });
-    carregar();
-  };
+  if (usuario?.tipo === 'aluno' || usuario?.tipo === 'professor') return;
+  e.preventDefault();
+  setDragOver(null);
+  const projetoId = e.dataTransfer.getData('projetoId');
+  if (!projetoId) return;
+  await api.patch(`/projetos/${projetoId}/categoria`, { categoria_id: categoriaId });
+  carregar();
+};
+
 
   const handleRemoverCategoria = async (projetoId, e) => {
     e.stopPropagation();
