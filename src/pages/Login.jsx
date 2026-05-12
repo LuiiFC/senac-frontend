@@ -216,7 +216,7 @@ const styles = {
     outline: 'none',
     width: '100%',
     boxSizing: 'border-box',
-    color: '#FFFFFF',
+    color: '#1A1A1A',
   },
   senhaBox: {
     position: 'relative',
