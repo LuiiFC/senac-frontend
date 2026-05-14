@@ -10,14 +10,20 @@ export default function Sidebar() {
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
-  const links = [
-    { path: '/', label: '🏠 Dashboard' },
-    { path: '/projetos', label: '📁 Projetos' },
-    { path: '/turmas', label: '🎓 Turmas' },
-    ...(usuario?.tipo !== 'aluno' ? [{ path: '/usuarios', label: '👥 Usuários' }] : []),
-    { path: '/categorias', label: '📂 Pastas' },
-    { path: '/alterar-senha', label: '🔒 Alterar Senha' },
-  ];
+  const getLabelProjetos = () => {
+  if (usuario?.tipo === 'aluno') return '📁 Meus Projetos';
+  if (usuario?.tipo === 'professor') return '📁 Projetos das Turmas';
+  return '📁 Projetos do Curso';
+};
+
+const links = [
+  { path: '/', label: '🏠 Dashboard' },
+  { path: '/projetos', label: getLabelProjetos() },
+  { path: '/turmas', label: '🎓 Turmas' },
+  ...(usuario?.tipo !== 'aluno' ? [{ path: '/usuarios', label: '👥 Usuários' }] : []),
+  { path: '/categorias', label: '📂 Pastas' },
+  { path: '/alterar-senha', label: '🔒 Alterar Senha' },
+];
 
   return (
     <>
