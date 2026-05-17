@@ -1,25 +1,86 @@
 import { useEffect, useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import api from '../api/api';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Cell, Legend
+} from 'recharts';
 
 export default function Dashboard() {
   const [stats, setStats] = useState({ usuarios: 0, projetos: 0, turmas: 0 });
+  const [topProjetos, setTopProjetos] = useState([]);
 
   useEffect(() => {
-    Promise.all([
-      api.get('/usuarios'),
-      api.get('/projetos'),
-      api.get('/turmas'),
-    ]).then(([u, p, t]) => {
-      setStats({ usuarios: u.data.length, projetos: p.data.length, turmas: t.data.length });
-    }).catch(() => {});
+    const carregar = async () => {
+      try {
+        const [u, p, t] = await Promise.all([
+          api.get('/usuarios'),
+          api.get('/projetos'),
+          api.get('/turmas'),
+        ]);
+        setStats({ usuarios: u.data.length, projetos: p.data.length, turmas: t.data.length });
+
+        // Buscar avaliações de cada projeto
+        const projetos = p.data;
+        const avaliacoesPorProjeto = await Promise.all(
+          projetos.map(async proj => {
+            try {
+              const av = await api.get(`/avaliacoes/${proj.id}`);
+              const avaliacoesComNota = av.data.filter(a =>
+                a.nota !== null &&
+                ['professor', 'coordenador', 'empresa_parceira'].includes(a.tipo_avaliador)
+              );
+              const media = avaliacoesComNota.length
+                ? (avaliacoesComNota.reduce((s, a) => s + a.nota, 0) / avaliacoesComNota.length)
+                : 0;
+              return {
+                nome: proj.titulo.length > 20 ? proj.titulo.substring(0, 20) + '...' : proj.titulo,
+                nomeCompleto: proj.titulo,
+                media: parseFloat(media.toFixed(1)),
+                avaliacoes: avaliacoesComNota.length,
+                curso: proj.turmas?.curso || '—',
+              };
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        const top5 = avaliacoesPorProjeto
+          .filter(p => p && p.avaliacoes > 0)
+          .sort((a, b) => b.media - a.media)
+          .slice(0, 5);
+
+        setTopProjetos(top5);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    carregar();
   }, []);
 
   const cards = [
-    { label: 'Usuários', valor: stats.usuarios, cor: '#1565C0', emoji: '👥' },
-    { label: 'Projetos', valor: stats.projetos, cor: '#1A7A4A', emoji: '📁' },
-    { label: 'Turmas', valor: stats.turmas, cor: '#B45309', emoji: '🎓' },
+    { label: 'Usuários', valor: stats.usuarios, cor: '#003366', emoji: '👥' },
+    { label: 'Projetos', valor: stats.projetos, cor: '#FF6B35', emoji: '📁' },
+    { label: 'Turmas', valor: stats.turmas, cor: '#1A7A4A', emoji: '🎓' },
   ];
+
+  const CORES = ['#003366', '#FF6B35', '#1A7A4A', '#6B21A8', '#B45309'];
+
+  const CustomTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+      const d = payload[0].payload;
+      return (
+        <div style={styles.tooltip}>
+          <p style={styles.tooltipTitulo}>{d.nomeCompleto}</p>
+          <p style={styles.tooltipItem}>📊 Média: <strong>{d.media}</strong></p>
+          <p style={styles.tooltipItem}>📝 Avaliações: <strong>{d.avaliacoes}</strong></p>
+          <p style={styles.tooltipItem}>🎓 Curso: <strong>{d.curso}</strong></p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <div style={styles.layout}>
@@ -27,6 +88,8 @@ export default function Dashboard() {
       <main style={styles.main}>
         <h1 style={styles.titulo}>Dashboard</h1>
         <p style={styles.sub}>Bem-vindo ao Sistema de Projetos Integrados do Senac</p>
+
+        {/* Cards de estatísticas */}
         <div style={styles.grid}>
           {cards.map(c => (
             <div key={c.label} style={{ ...styles.card, borderTop: `4px solid ${c.cor}` }}>
@@ -35,6 +98,61 @@ export default function Dashboard() {
               <p style={styles.cardLabel}>{c.label}</p>
             </div>
           ))}
+        </div>
+
+        {/* Gráfico Top 5 */}
+        <div style={styles.chartCard}>
+          <h2 style={styles.chartTitulo}>🏆 Top 5 Projetos Mais Avaliados</h2>
+          <p style={styles.chartSub}>Média de notas por professores, coordenadores e empresas parceiras</p>
+
+          {topProjetos.length === 0 ? (
+            <div style={styles.emptyChart}>
+              <p style={{ fontSize: 32 }}>📊</p>
+              <p style={{ color: '#888', fontSize: 14 }}>Nenhuma avaliação registrada ainda.</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart
+                data={topProjetos}
+                margin={{ top: 20, right: 30, left: 0, bottom: 20 }}
+                barSize={48}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false} />
+                <XAxis
+                  dataKey="nome"
+                  tick={{ fontSize: 12, fill: '#555' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  domain={[0, 10]}
+                  tick={{ fontSize: 12, fill: '#555' }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickCount={6}
+                />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
+                <Bar dataKey="media" radius={[8, 8, 0, 0]} label={{ position: 'top', fontSize: 13, fontWeight: 700, fill: '#333' }}>
+                  {topProjetos.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={CORES[index % CORES.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+
+          {/* Legenda */}
+          {topProjetos.length > 0 && (
+            <div style={styles.legenda}>
+              {topProjetos.map((p, i) => (
+                <div key={i} style={styles.legendaItem}>
+                  <div style={{ ...styles.legendaCor, background: CORES[i % CORES.length] }} />
+                  <span style={styles.legendaTexto}>{p.nomeCompleto}</span>
+                  <span style={styles.legendaMedia}>{p.media} ⭐</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </main>
     </div>
@@ -46,9 +164,21 @@ const styles = {
   main: { flex: 1, padding: 40, background: '#F8F7F5' },
   titulo: { fontSize: 28, fontWeight: 700, color: '#1A1A1A', margin: 0 },
   sub: { color: '#666', marginTop: 8, marginBottom: 32 },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20 },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 20, marginBottom: 32 },
   card: { background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
   emoji: { fontSize: 32 },
   valor: { fontSize: 40, fontWeight: 700, margin: '8px 0 4px', color: '#1A1A1A' },
   cardLabel: { color: '#666', fontSize: 14, margin: 0 },
+  chartCard: { background: '#fff', borderRadius: 16, padding: 32, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
+  chartTitulo: { fontSize: 20, fontWeight: 700, color: '#1A1A1A', margin: '0 0 4px' },
+  chartSub: { color: '#888', fontSize: 13, margin: '0 0 24px' },
+  emptyChart: { textAlign: 'center', padding: '40px 0' },
+  tooltip: { background: '#fff', border: '1px solid #E0E0E0', borderRadius: 10, padding: '12px 16px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' },
+  tooltipTitulo: { fontWeight: 700, fontSize: 13, color: '#1A1A1A', margin: '0 0 8px' },
+  tooltipItem: { fontSize: 12, color: '#555', margin: '4px 0' },
+  legenda: { marginTop: 24, display: 'flex', flexDirection: 'column', gap: 8 },
+  legendaItem: { display: 'flex', alignItems: 'center', gap: 10 },
+  legendaCor: { width: 12, height: 12, borderRadius: 3, flexShrink: 0 },
+  legendaTexto: { fontSize: 13, color: '#333', flex: 1 },
+  legendaMedia: { fontSize: 13, fontWeight: 700, color: '#FF6B35' },
 };
