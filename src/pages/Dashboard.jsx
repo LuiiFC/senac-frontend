@@ -1,14 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Sidebar from '../components/Sidebar';
 import api from '../api/api';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell, Legend
-} from 'recharts';
 
 export default function Dashboard() {
   const [stats, setStats] = useState({ usuarios: 0, projetos: 0, turmas: 0 });
   const [topProjetos, setTopProjetos] = useState([]);
+  const canvasRef = useRef(null);
 
   useEffect(() => {
     const carregar = async () => {
@@ -20,7 +17,6 @@ export default function Dashboard() {
         ]);
         setStats({ usuarios: u.data.length, projetos: p.data.length, turmas: t.data.length });
 
-        // Buscar avaliações de cada projeto
         const projetos = p.data;
         const avaliacoesPorProjeto = await Promise.all(
           projetos.map(async proj => {
@@ -31,18 +27,16 @@ export default function Dashboard() {
                 ['professor', 'coordenador', 'empresa_parceira'].includes(a.tipo_avaliador)
               );
               const media = avaliacoesComNota.length
-                ? (avaliacoesComNota.reduce((s, a) => s + a.nota, 0) / avaliacoesComNota.length)
+                ? avaliacoesComNota.reduce((s, a) => s + a.nota, 0) / avaliacoesComNota.length
                 : 0;
               return {
-                nome: proj.titulo.length > 20 ? proj.titulo.substring(0, 20) + '...' : proj.titulo,
+                nome: proj.titulo.length > 18 ? proj.titulo.substring(0, 18) + '...' : proj.titulo,
                 nomeCompleto: proj.titulo,
                 media: parseFloat(media.toFixed(1)),
                 avaliacoes: avaliacoesComNota.length,
                 curso: proj.turmas?.curso || '—',
               };
-            } catch {
-              return null;
-            }
+            } catch { return null; }
           })
         );
 
@@ -52,12 +46,146 @@ export default function Dashboard() {
           .slice(0, 5);
 
         setTopProjetos(top5);
-      } catch (err) {
-        console.error(err);
-      }
+      } catch (err) { console.error(err); }
     };
     carregar();
   }, []);
+
+  useEffect(() => {
+    if (!canvasRef.current || topProjetos.length === 0) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const CORES = ['#003366', '#FF6B35', '#1A7A4A', '#6B21A8', '#B45309'];
+    const maxMedia = 10;
+    const barW = 60;
+    const gap = 40;
+    const totalW = topProjetos.length * (barW + gap);
+    const startX = (W - totalW) / 2 + 20;
+    const baseY = H - 80;
+    const maxH = H - 160;
+    const depth = 18;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Fundo gradiente
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#f8f9ff');
+    bg.addColorStop(1, '#eef1f8');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Linhas de grade
+    ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 5; i++) {
+      const y = baseY - (maxH * i) / 5;
+      ctx.beginPath();
+      ctx.moveTo(startX - 20, y);
+      ctx.lineTo(startX + totalW + 20, y);
+      ctx.stroke();
+      ctx.fillStyle = '#999';
+      ctx.font = '11px sans-serif';
+      ctx.fillText((i * 2).toString(), startX - 32, y + 4);
+    }
+
+    topProjetos.forEach((proj, i) => {
+      const x = startX + i * (barW + gap);
+      const barH = (proj.media / maxMedia) * maxH;
+      const cor = CORES[i % CORES.length];
+
+      // Sombra
+      ctx.shadowColor = 'rgba(0,0,0,0.15)';
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetX = 4;
+      ctx.shadowOffsetY = 4;
+
+      // Face frontal
+      ctx.fillStyle = cor;
+      ctx.beginPath();
+      ctx.roundRect(x, baseY - barH, barW, barH, [6, 6, 0, 0]);
+      ctx.fill();
+
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+
+      // Face superior (3D)
+      ctx.fillStyle = shadeColor(cor, 30);
+      ctx.beginPath();
+      ctx.moveTo(x, baseY - barH);
+      ctx.lineTo(x + depth, baseY - barH - depth);
+      ctx.lineTo(x + barW + depth, baseY - barH - depth);
+      ctx.lineTo(x + barW, baseY - barH);
+      ctx.closePath();
+      ctx.fill();
+
+      // Face lateral direita (3D)
+      ctx.fillStyle = shadeColor(cor, -30);
+      ctx.beginPath();
+      ctx.moveTo(x + barW, baseY - barH);
+      ctx.lineTo(x + barW + depth, baseY - barH - depth);
+      ctx.lineTo(x + barW + depth, baseY - depth);
+      ctx.lineTo(x + barW, baseY);
+      ctx.closePath();
+      ctx.fill();
+
+      // Borda brilhante
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x, baseY - barH);
+      ctx.lineTo(x, baseY);
+      ctx.stroke();
+
+      // Valor no topo
+      ctx.fillStyle = '#1A1A1A';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(proj.media.toString(), x + barW / 2, baseY - barH - depth - 8);
+
+      // Nome embaixo
+      ctx.fillStyle = '#444';
+      ctx.font = '11px sans-serif';
+      ctx.textAlign = 'center';
+      const palavras = proj.nome.split(' ');
+      let linha = '';
+      let linhaY = baseY + 18;
+      palavras.forEach(palavra => {
+        if ((linha + palavra).length > 10) {
+          ctx.fillText(linha.trim(), x + barW / 2, linhaY);
+          linha = palavra + ' ';
+          linhaY += 14;
+        } else {
+          linha += palavra + ' ';
+        }
+      });
+      ctx.fillText(linha.trim(), x + barW / 2, linhaY);
+    });
+
+    // Título do eixo Y
+    ctx.save();
+    ctx.translate(14, H / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = '#888';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Média (0-10)', 0, 0);
+    ctx.restore();
+
+  }, [topProjetos]);
+
+  function shadeColor(color, percent) {
+    const num = parseInt(color.replace('#', ''), 16);
+    const r = Math.min(255, Math.max(0, (num >> 16) + percent));
+    const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + percent));
+    const b = Math.min(255, Math.max(0, (num & 0x0000FF) + percent));
+    return `rgb(${r},${g},${b})`;
+  }
 
   const cards = [
     { label: 'Usuários', valor: stats.usuarios, cor: '#003366', emoji: '👥' },
@@ -67,21 +195,6 @@ export default function Dashboard() {
 
   const CORES = ['#003366', '#FF6B35', '#1A7A4A', '#6B21A8', '#B45309'];
 
-  const CustomTooltip = ({ active, payload }) => {
-    if (active && payload && payload.length) {
-      const d = payload[0].payload;
-      return (
-        <div style={styles.tooltip}>
-          <p style={styles.tooltipTitulo}>{d.nomeCompleto}</p>
-          <p style={styles.tooltipItem}>📊 Média: <strong>{d.media}</strong></p>
-          <p style={styles.tooltipItem}>📝 Avaliações: <strong>{d.avaliacoes}</strong></p>
-          <p style={styles.tooltipItem}>🎓 Curso: <strong>{d.curso}</strong></p>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <div style={styles.layout}>
       <Sidebar />
@@ -89,7 +202,6 @@ export default function Dashboard() {
         <h1 style={styles.titulo}>Dashboard</h1>
         <p style={styles.sub}>Bem-vindo ao Sistema de Projetos Integrados do Senac</p>
 
-        {/* Cards de estatísticas */}
         <div style={styles.grid}>
           {cards.map(c => (
             <div key={c.label} style={{ ...styles.card, borderTop: `4px solid ${c.cor}` }}>
@@ -100,58 +212,33 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Gráfico Top 5 */}
         <div style={styles.chartCard}>
           <h2 style={styles.chartTitulo}>🏆 Top 5 Projetos Mais Avaliados</h2>
           <p style={styles.chartSub}>Média de notas por professores, coordenadores e empresas parceiras</p>
 
           {topProjetos.length === 0 ? (
             <div style={styles.emptyChart}>
-              <p style={{ fontSize: 32 }}>📊</p>
+              <p style={{ fontSize: 40 }}>📊</p>
               <p style={{ color: '#888', fontSize: 14 }}>Nenhuma avaliação registrada ainda.</p>
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart
-                data={topProjetos}
-                margin={{ top: 20, right: 30, left: 0, bottom: 20 }}
-                barSize={48}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false} />
-                <XAxis
-                  dataKey="nome"
-                  tick={{ fontSize: 12, fill: '#555' }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  domain={[0, 10]}
-                  tick={{ fontSize: 12, fill: '#555' }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickCount={6}
-                />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
-                <Bar dataKey="media" radius={[8, 8, 0, 0]} label={{ position: 'top', fontSize: 13, fontWeight: 700, fill: '#333' }}>
-                  {topProjetos.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={CORES[index % CORES.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-
-          {/* Legenda */}
-          {topProjetos.length > 0 && (
-            <div style={styles.legenda}>
-              {topProjetos.map((p, i) => (
-                <div key={i} style={styles.legendaItem}>
-                  <div style={{ ...styles.legendaCor, background: CORES[i % CORES.length] }} />
-                  <span style={styles.legendaTexto}>{p.nomeCompleto}</span>
-                  <span style={styles.legendaMedia}>{p.media} ⭐</span>
-                </div>
-              ))}
-            </div>
+            <>
+              <canvas
+                ref={canvasRef}
+                width={700}
+                height={380}
+                style={{ width: '100%', maxWidth: 700, display: 'block', margin: '0 auto' }}
+              />
+              <div style={styles.legenda}>
+                {topProjetos.map((p, i) => (
+                  <div key={i} style={styles.legendaItem}>
+                    <div style={{ ...styles.legendaCor, background: CORES[i % CORES.length] }} />
+                    <span style={styles.legendaTexto}>{p.nomeCompleto}</span>
+                    <span style={styles.legendaMedia}>{p.media} ⭐ ({p.avaliacoes} avaliações)</span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </main>
@@ -173,9 +260,6 @@ const styles = {
   chartTitulo: { fontSize: 20, fontWeight: 700, color: '#1A1A1A', margin: '0 0 4px' },
   chartSub: { color: '#888', fontSize: 13, margin: '0 0 24px' },
   emptyChart: { textAlign: 'center', padding: '40px 0' },
-  tooltip: { background: '#fff', border: '1px solid #E0E0E0', borderRadius: 10, padding: '12px 16px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' },
-  tooltipTitulo: { fontWeight: 700, fontSize: 13, color: '#1A1A1A', margin: '0 0 8px' },
-  tooltipItem: { fontSize: 12, color: '#555', margin: '4px 0' },
   legenda: { marginTop: 24, display: 'flex', flexDirection: 'column', gap: 8 },
   legendaItem: { display: 'flex', alignItems: 'center', gap: 10 },
   legendaCor: { width: 12, height: 12, borderRadius: 3, flexShrink: 0 },
