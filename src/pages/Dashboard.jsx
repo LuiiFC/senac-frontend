@@ -15,42 +15,58 @@ export default function Dashboard() {
           api.get('/projetos'),
           api.get('/turmas'),
         ]);
-        setStats({ usuarios: u.data.length, projetos: p.data.length, turmas: t.data.length });
+
+        setStats({
+          usuarios: u.data.length,
+          projetos: p.data.length,
+          turmas: t.data.length,
+        });
 
         const projetos = p.data;
+
         const avaliacoesPorProjeto = await Promise.all(
-          projetos.map(async proj => {
+          projetos.map(async (proj) => {
             try {
               const av = await api.get(`/avaliacoes/${proj.id}`);
-              const avaliacoesComNota = av.data.filter(a =>
-                a.nota !== null &&
+              const avaliacoesComNota = av.data.filter((a) =>
+                a.nota !== null && 
                 ['professor', 'coordenador', 'empresa_parceira'].includes(a.tipo_avaliador)
               );
+
               const media = avaliacoesComNota.length
                 ? avaliacoesComNota.reduce((s, a) => s + a.nota, 0) / avaliacoesComNota.length
                 : 0;
+
               return {
-                nome: proj.titulo.length > 18 ? proj.titulo.substring(0, 18) + '...' : proj.titulo,
+                nome: proj.titulo.length > 18 
+                  ? proj.titulo.substring(0, 18) + '...' 
+                  : proj.titulo,
                 nomeCompleto: proj.titulo,
                 media: parseFloat(media.toFixed(1)),
                 avaliacoes: avaliacoesComNota.length,
-                curso: proj.turmas?.curso || '—',
+                curso: proj.turmas?.curso || proj.curso || '—',
               };
-            } catch { return null; }
+            } catch {
+              return null;
+            }
           })
         );
 
         const top5 = avaliacoesPorProjeto
-          .filter(p => p && p.avaliacoes > 0)
+          .filter((p) => p && p.avaliacoes > 0)
           .sort((a, b) => b.media - a.media)
           .slice(0, 5);
 
         setTopProjetos(top5);
-      } catch (err) { console.error(err); }
+      } catch (err) {
+        console.error('Erro ao carregar dashboard:', err);
+      }
     };
+
     carregar();
   }, []);
 
+  // ==================== GRÁFICO ====================
   useEffect(() => {
     if (!canvasRef.current || topProjetos.length === 0) return;
 
@@ -61,35 +77,36 @@ export default function Dashboard() {
 
     const CORES = ['#003366', '#FF6B35', '#1A7A4A', '#6B21A8', '#B45309'];
     const maxMedia = 10;
-    const barW = 60;
-    const gap = 40;
+    const barW = 55;
+    const gap = 45;
     const totalW = topProjetos.length * (barW + gap);
-    const startX = (W - totalW) / 2 + 20;
+    const startX = (W - totalW) / 2;
     const baseY = H - 80;
-    const maxH = H - 160;
-    const depth = 18;
+    const maxH = H - 170;
 
     ctx.clearRect(0, 0, W, H);
 
-    // Fundo gradiente
+    // Fundo
     const bg = ctx.createLinearGradient(0, 0, 0, H);
     bg.addColorStop(0, '#f8f9ff');
     bg.addColorStop(1, '#eef1f8');
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, W, H);
 
-    // Linhas de grade
+    // Grade
     ctx.strokeStyle = 'rgba(0,0,0,0.06)';
     ctx.lineWidth = 1;
     for (let i = 0; i <= 5; i++) {
       const y = baseY - (maxH * i) / 5;
       ctx.beginPath();
-      ctx.moveTo(startX - 20, y);
+      ctx.moveTo(startX - 30, y);
       ctx.lineTo(startX + totalW + 20, y);
       ctx.stroke();
-      ctx.fillStyle = '#999';
+
+      ctx.fillStyle = '#777';
       ctx.font = '11px sans-serif';
-      ctx.fillText((i * 2).toString(), startX - 32, y + 4);
+      ctx.textAlign = 'right';
+      ctx.fillText((i * 2).toString(), startX - 38, y + 4);
     }
 
     topProjetos.forEach((proj, i) => {
@@ -97,103 +114,38 @@ export default function Dashboard() {
       const barH = (proj.media / maxMedia) * maxH;
       const cor = CORES[i % CORES.length];
 
-      // Sombra
-      ctx.shadowColor = 'rgba(0,0,0,0.15)';
-      ctx.shadowBlur = 10;
-      ctx.shadowOffsetX = 4;
-      ctx.shadowOffsetY = 4;
-
-      // Face frontal
+      // Barra principal (sem roundRect para maior compatibilidade)
       ctx.fillStyle = cor;
+      ctx.fillRect(x, baseY - barH, barW, barH);
+
+      // Topo arredondado manual
       ctx.beginPath();
-      ctx.roundRect(x, baseY - barH, barW, barH, [6, 6, 0, 0]);
+      ctx.roundRect(x, baseY - barH, barW, barH, [8, 8, 0, 0]); // se não funcionar, comente
       ctx.fill();
-
-      ctx.shadowColor = 'transparent';
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-
-      // Face superior (3D)
-      ctx.fillStyle = shadeColor(cor, 30);
-      ctx.beginPath();
-      ctx.moveTo(x, baseY - barH);
-      ctx.lineTo(x + depth, baseY - barH - depth);
-      ctx.lineTo(x + barW + depth, baseY - barH - depth);
-      ctx.lineTo(x + barW, baseY - barH);
-      ctx.closePath();
-      ctx.fill();
-
-      // Face lateral direita (3D)
-      ctx.fillStyle = shadeColor(cor, -30);
-      ctx.beginPath();
-      ctx.moveTo(x + barW, baseY - barH);
-      ctx.lineTo(x + barW + depth, baseY - barH - depth);
-      ctx.lineTo(x + barW + depth, baseY - depth);
-      ctx.lineTo(x + barW, baseY);
-      ctx.closePath();
-      ctx.fill();
-
-      // Borda brilhante
-      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(x, baseY - barH);
-      ctx.lineTo(x, baseY);
-      ctx.stroke();
 
       // Valor no topo
       ctx.fillStyle = '#1A1A1A';
-      ctx.font = 'bold 14px sans-serif';
+      ctx.font = 'bold 15px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(proj.media.toString(), x + barW / 2, baseY - barH - depth - 8);
+      ctx.fillText(proj.media.toString(), x + barW / 2, baseY - barH - 10);
 
-      // Nome embaixo
+      // Nome abaixo
       ctx.fillStyle = '#444';
       ctx.font = '11px sans-serif';
       ctx.textAlign = 'center';
-      const palavras = proj.nome.split(' ');
-      let linha = '';
-      let linhaY = baseY + 18;
-      palavras.forEach(palavra => {
-        if ((linha + palavra).length > 10) {
-          ctx.fillText(linha.trim(), x + barW / 2, linhaY);
-          linha = palavra + ' ';
-          linhaY += 14;
-        } else {
-          linha += palavra + ' ';
-        }
-      });
-      ctx.fillText(linha.trim(), x + barW / 2, linhaY);
+      const nomeFormatado = proj.nome.length > 12 
+        ? proj.nome.substring(0, 12) + '...' 
+        : proj.nome;
+      ctx.fillText(nomeFormatado, x + barW / 2, baseY + 25);
     });
 
-    // Título do eixo Y
-    ctx.save();
-    ctx.translate(14, H / 2);
-    ctx.rotate(-Math.PI / 2);
-    ctx.fillStyle = '#888';
-    ctx.font = '11px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('Média (0-10)', 0, 0);
-    ctx.restore();
-
   }, [topProjetos]);
-
-  function shadeColor(color, percent) {
-    const num = parseInt(color.replace('#', ''), 16);
-    const r = Math.min(255, Math.max(0, (num >> 16) + percent));
-    const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + percent));
-    const b = Math.min(255, Math.max(0, (num & 0x0000FF) + percent));
-    return `rgb(${r},${g},${b})`;
-  }
 
   const cards = [
     { label: 'Usuários', valor: stats.usuarios, cor: '#003366', emoji: '👥' },
     { label: 'Projetos', valor: stats.projetos, cor: '#FF6B35', emoji: '📁' },
-    { label: 'Turmas', valor: stats.turmas, cor: '#1A7A4A', emoji: '🎓' },
+    { label: 'Turmas',  valor: stats.turmas,   cor: '#1A7A4A', emoji: '🎓' },
   ];
-
-  const CORES = ['#003366', '#FF6B35', '#1A7A4A', '#6B21A8', '#B45309'];
 
   return (
     <div style={styles.layout}>
@@ -203,7 +155,7 @@ export default function Dashboard() {
         <p style={styles.sub}>Bem-vindo ao Sistema de Projetos Integrados do Senac</p>
 
         <div style={styles.grid}>
-          {cards.map(c => (
+          {cards.map((c) => (
             <div key={c.label} style={{ ...styles.card, borderTop: `4px solid ${c.cor}` }}>
               <span style={styles.emoji}>{c.emoji}</span>
               <p style={styles.valor}>{c.valor}</p>
@@ -214,27 +166,35 @@ export default function Dashboard() {
 
         <div style={styles.chartCard}>
           <h2 style={styles.chartTitulo}>🏆 Top 5 Projetos Mais Avaliados</h2>
-          <p style={styles.chartSub}>Média de notas por professores, coordenadores e empresas parceiras</p>
+          <p style={styles.chartSub}>
+            Média de notas por professores, coordenadores e empresas parceiras
+          </p>
 
           {topProjetos.length === 0 ? (
             <div style={styles.emptyChart}>
-              <p style={{ fontSize: 40 }}>📊</p>
-              <p style={{ color: '#888', fontSize: 14 }}>Nenhuma avaliação registrada ainda.</p>
+              <p style={{ fontSize: 48, marginBottom: 12 }}>📊</p>
+              <p style={{ color: '#888' }}>Nenhuma avaliação registrada ainda.</p>
             </div>
           ) : (
             <>
               <canvas
                 ref={canvasRef}
-                width={700}
-                height={380}
-                style={{ width: '100%', maxWidth: 700, display: 'block', margin: '0 auto' }}
+                width={720}
+                height={420}
+                style={{ width: '100%', maxWidth: '720px', display: 'block', margin: '0 auto' }}
               />
+
               <div style={styles.legenda}>
                 {topProjetos.map((p, i) => (
                   <div key={i} style={styles.legendaItem}>
-                    <div style={{ ...styles.legendaCor, background: CORES[i % CORES.length] }} />
+                    <div style={{ 
+                      ...styles.legendaCor, 
+                      background: ['#003366', '#FF6B35', '#1A7A4A', '#6B21A8', '#B45309'][i] 
+                    }} />
                     <span style={styles.legendaTexto}>{p.nomeCompleto}</span>
-                    <span style={styles.legendaMedia}>{p.media} ⭐ ({p.avaliacoes} avaliações)</span>
+                    <span style={styles.legendaMedia}>
+                      {p.media} ⭐ ({p.avaliacoes} avaliações)
+                    </span>
                   </div>
                 ))}
               </div>
@@ -246,6 +206,7 @@ export default function Dashboard() {
   );
 }
 
+/* ==================== STYLES ==================== */
 const styles = {
   layout: { display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif' },
   main: { flex: 1, padding: 40, background: '#F8F7F5' },
@@ -259,10 +220,10 @@ const styles = {
   chartCard: { background: '#fff', borderRadius: 16, padding: 32, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
   chartTitulo: { fontSize: 20, fontWeight: 700, color: '#1A1A1A', margin: '0 0 4px' },
   chartSub: { color: '#888', fontSize: 13, margin: '0 0 24px' },
-  emptyChart: { textAlign: 'center', padding: '40px 0' },
-  legenda: { marginTop: 24, display: 'flex', flexDirection: 'column', gap: 8 },
-  legendaItem: { display: 'flex', alignItems: 'center', gap: 10 },
-  legendaCor: { width: 12, height: 12, borderRadius: 3, flexShrink: 0 },
-  legendaTexto: { fontSize: 13, color: '#333', flex: 1 },
+  emptyChart: { textAlign: 'center', padding: '60px 0' },
+  legenda: { marginTop: 24, display: 'flex', flexDirection: 'column', gap: 10 },
+  legendaItem: { display: 'flex', alignItems: 'center', gap: 12 },
+  legendaCor: { width: 14, height: 14, borderRadius: 4, flexShrink: 0 },
+  legendaTexto: { fontSize: 13.5, color: '#333', flex: 1 },
   legendaMedia: { fontSize: 13, fontWeight: 700, color: '#FF6B35' },
 };
