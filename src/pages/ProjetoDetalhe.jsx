@@ -11,31 +11,52 @@ export default function ProjetoDetalhe() {
   const [projeto, setProjeto] = useState(null);
   const [avaliacoes, setAvaliacoes] = useState([]);
   const [form, setForm] = useState({ nota: '', comentario: '' });
+  const [curtido, setCurtido] = useState(false);
+  const [curtidas, setCurtidas] = useState(0);
+  const [empresasCurtiram, setEmpresasCurtiram] = useState([]);
+
+  const carregarCurtidas = async () => {
+    try {
+      const res = await api.get(`/projetos/${id}/curtidas`);
+      setCurtidas(res.data.total);
+      setCurtido(res.data.curtido);
+      setEmpresasCurtiram(res.data.empresas || []);
+    } catch {}
+  };
 
   const carregar = () => {
     api.get(`/projetos/${id}`).then(r => setProjeto(r.data));
     api.get(`/avaliacoes/${id}`).then(r => setAvaliacoes(r.data));
+    carregarCurtidas();
   };
+
   useEffect(() => { carregar(); }, [id]);
 
   const handleAvaliar = async (e) => {
-  e.preventDefault();
-  await api.post(`/avaliacoes/${id}`, {
-    nota: (usuario?.tipo === 'professor' || usuario?.tipo === 'coordenador')
-      ? parseFloat(form.nota)
-      : null,
-    comentario: form.comentario
-  });
-  setForm({ nota: '', comentario: '' });
-  carregar();
-};
+    e.preventDefault();
+    await api.post(`/avaliacoes/${id}`, {
+      nota: (usuario?.tipo === 'professor' || usuario?.tipo === 'coordenador')
+        ? parseFloat(form.nota) : null,
+      comentario: form.comentario
+    });
+    setForm({ nota: '', comentario: '' });
+    carregar();
+  };
+
+  const handleCurtir = async () => {
+    try {
+      const res = await api.post(`/projetos/${id}/curtir`);
+      setCurtido(res.data.curtido);
+      carregarCurtidas();
+    } catch {}
+  };
 
   if (!projeto) return <div style={{ padding: 40, fontFamily: 'sans-serif' }}>Carregando...</div>;
 
-const avaliacoesComNota = avaliacoes.filter(a => a.nota !== null && a.nota !== undefined);
-const media = avaliacoesComNota.length 
-  ? (avaliacoesComNota.reduce((s, a) => s + a.nota, 0) / avaliacoesComNota.length).toFixed(1) 
-  : '—';
+  const avaliacoesComNota = avaliacoes.filter(a => a.nota !== null && a.nota !== undefined);
+  const media = avaliacoesComNota.length
+    ? (avaliacoesComNota.reduce((s, a) => s + a.nota, 0) / avaliacoesComNota.length).toFixed(1)
+    : '—';
 
   return (
     <div style={styles.layout}>
@@ -48,12 +69,38 @@ const media = avaliacoesComNota.length
               {projeto.turmas && <p style={styles.sub}>🎓 {projeto.turmas.nome} — {projeto.turmas.curso}</p>}
               {projeto.usuarios && <p style={styles.sub}>👨‍🏫 {projeto.usuarios.nome}</p>}
             </div>
-            <div style={styles.mediaBox}>
-              <p style={styles.mediaNum}>{media}</p>
-              <p style={styles.mediaLabel}>Média</p>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+              <div style={styles.mediaBox}>
+                <p style={styles.mediaNum}>{media}</p>
+                <p style={styles.mediaLabel}>Média</p>
+              </div>
+              {usuario?.tipo === 'empresa_parceira' && (
+                <button onClick={handleCurtir} style={{
+                  ...styles.btnCurtir,
+                  background: curtido ? '#FF6B35' : '#fff',
+                  color: curtido ? '#fff' : '#FF6B35',
+                }}>
+                  {curtido ? '❤️' : '🤍'} {curtido ? 'Curtido' : 'Curtir'}
+                </button>
+              )}
             </div>
           </div>
+
           {projeto.descricao && <p style={styles.desc}>{projeto.descricao}</p>}
+
+          {/* Badges das empresas que curtiram */}
+          {empresasCurtiram.length > 0 && (
+            <div style={styles.curtidasBox}>
+              <p style={styles.sectionLabel}>🏢 Empresas Parceiras que curtiram ({curtidas})</p>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {empresasCurtiram.map((c, i) => (
+                  <span key={i} style={styles.empresaBadge}>
+                    🏢 {c.usuarios?.nome}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {projeto.arquivo_url && (
             <div style={styles.arquivoBox}>
@@ -76,36 +123,36 @@ const media = avaliacoesComNota.length
           )}
         </div>
 
-       <div style={styles.card}>
-  <h2 style={styles.sectionTitulo}>
-    {usuario?.tipo === 'aluno' ? '💬 Comentar' : '✍️ Avaliar Projeto'}
-  </h2>
-  <form onSubmit={handleAvaliar} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-    {(usuario?.tipo === 'professor' || usuario?.tipo === 'coordenador') && (
-      <div>
-        <label style={styles.label}>Nota (0–10)</label>
-        <input
-          style={{ ...styles.input, width: 100 }}
-          type="number" min="0" max="10" step="0.1"
-          value={form.nota}
-          onChange={e => setForm({...form, nota: e.target.value})}
-          required
-        />
-      </div>
-    )}
-    <div style={{ flex: 1, minWidth: 200 }}>
-      <label style={styles.label}>Comentário</label>
-      <input
-        style={styles.input}
-        value={form.comentario}
-        onChange={e => setForm({...form, comentario: e.target.value})}
-        placeholder={usuario?.tipo === 'aluno' ? 'Escreva seu comentário...' : 'Escreva sua avaliação...'}
-        required
-      />
-    </div>
-    <button style={styles.btn} type="submit">Enviar</button>
-  </form>
-</div>
+        <div style={styles.card}>
+          <h2 style={styles.sectionTitulo}>
+            {usuario?.tipo === 'aluno' ? '💬 Comentar' : '✍️ Avaliar Projeto'}
+          </h2>
+          <form onSubmit={handleAvaliar} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            {(usuario?.tipo === 'professor' || usuario?.tipo === 'coordenador') && (
+              <div>
+                <label style={styles.label}>Nota (0–10)</label>
+                <input
+                  style={{ ...styles.input, width: 100 }}
+                  type="number" min="0" max="10" step="0.1"
+                  value={form.nota}
+                  onChange={e => setForm({...form, nota: e.target.value})}
+                  required
+                />
+              </div>
+            )}
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <label style={styles.label}>Comentário</label>
+              <input
+                style={styles.input}
+                value={form.comentario}
+                onChange={e => setForm({...form, comentario: e.target.value})}
+                placeholder={usuario?.tipo === 'aluno' ? 'Escreva seu comentário...' : 'Escreva sua avaliação...'}
+                required
+              />
+            </div>
+            <button style={styles.btn} type="submit">Enviar</button>
+          </form>
+        </div>
 
         <h2 style={{ ...styles.sectionTitulo, marginBottom: 16 }}>💬 Avaliações ({avaliacoes.length})</h2>
         {avaliacoes.length === 0
@@ -127,6 +174,9 @@ const styles = {
   mediaBox: { textAlign: 'center', background: '#F8F7F5', borderRadius: 12, padding: '12px 20px' },
   mediaNum: { fontSize: 32, fontWeight: 700, color: '#C8102E', margin: 0 },
   mediaLabel: { color: '#666', fontSize: 12, margin: 0 },
+  btnCurtir: { padding: '8px 18px', borderRadius: 20, fontSize: 14, fontWeight: 600, cursor: 'pointer', border: '2px solid #FF6B35', transition: 'all 0.2s' },
+  curtidasBox: { marginTop: 16, paddingTop: 16, borderTop: '1px solid #F0F0F0' },
+  empresaBadge: { background: 'linear-gradient(135deg, #003366, #0055AA)', color: '#fff', padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700 },
   arquivoBox: { marginTop: 16, paddingTop: 16, borderTop: '1px solid #F0F0F0' },
   btnDownload: { display: 'inline-block', background: '#1565C0', color: '#fff', padding: '10px 20px', borderRadius: 8, textDecoration: 'none', fontSize: 14, fontWeight: 600, marginTop: 8 },
   alunosBox: { marginTop: 16, paddingTop: 16, borderTop: '1px solid #F0F0F0' },
