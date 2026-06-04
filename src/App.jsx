@@ -11,6 +11,7 @@ import Usuarios from './pages/Usuarios';
 import Turmas from './pages/Turmas';
 import AlterarSenha from './pages/AlterarSenha';
 import Categorias from './pages/Categorias';
+import Empresas from './pages/Empresas';
 
 function Privado({ children }) {
   const { usuario } = useAuth();
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/turmas" element={<Privado><Turmas /></Privado>} />
           <Route path="/alterar-senha" element={<Privado><AlterarSenha /></Privado>} />
           <Route path="/categorias" element={<Privado><Categorias /></Privado>} />
+          <Route path="/empresas" element={<Privado><Empresas /></Privado>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
