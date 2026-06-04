@@ -45,7 +45,9 @@ export default function Sidebar() {
 
       <div style={{ ...styles.sidebar, ...(menuAberto ? styles.sidebarAberta : {}) }}>
         <div style={styles.logo}>
-          <img src="/logo.png" alt="SENAC" style={{ width: 120, objectFit: 'contain' }} />
+          <div style={{ background: '#fff', borderRadius: 10, padding: '8px 12px', display: 'inline-block' }}>
+          <img src="/logo.png" alt="SENAC" style={{ width: 100, objectFit: 'contain', display: 'block' }} />
+          </div>
           <p style={styles.logoSub}>Projetos Integrados</p>
         </div>
         <div style={styles.userBox}>
