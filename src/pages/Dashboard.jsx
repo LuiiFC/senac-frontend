@@ -6,6 +6,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ usuarios: 0, projetos: 0, turmas: 0 });
   const [topProjetos, setTopProjetos] = useState([]);
   const canvasRef = useRef(null);
+  const animRef = useRef(null);
 
   useEffect(() => {
     const carregar = async () => {
@@ -29,18 +30,14 @@ export default function Dashboard() {
             try {
               const av = await api.get(`/avaliacoes/${proj.id}`);
               const avaliacoesComNota = av.data.filter((a) =>
-                a.nota !== null && 
+                a.nota !== null &&
                 ['professor', 'coordenador', 'empresa_parceira'].includes(a.tipo_avaliador)
               );
-
               const media = avaliacoesComNota.length
                 ? avaliacoesComNota.reduce((s, a) => s + a.nota, 0) / avaliacoesComNota.length
                 : 0;
-
               return {
-                nome: proj.titulo.length > 18 
-                  ? proj.titulo.substring(0, 18) + '...' 
-                  : proj.titulo,
+                nome: proj.titulo.length > 18 ? proj.titulo.substring(0, 18) + '...' : proj.titulo,
                 nomeCompleto: proj.titulo,
                 media: parseFloat(media.toFixed(1)),
                 avaliacoes: avaliacoesComNota.length,
@@ -62,11 +59,9 @@ export default function Dashboard() {
         console.error('Erro ao carregar dashboard:', err);
       }
     };
-
     carregar();
   }, []);
 
-  // ==================== GRÁFICO ====================
   useEffect(() => {
     if (!canvasRef.current || topProjetos.length === 0) return;
 
@@ -75,76 +70,126 @@ export default function Dashboard() {
     const W = canvas.width;
     const H = canvas.height;
 
-    const CORES = ['#003366', '#FF6B35', '#1A7A4A', '#6B21A8', '#B45309'];
+    const GRADIENTS = [
+      ['#FF6B35', '#FF9A5C'],
+      ['#00C9FF', '#0077B6'],
+      ['#A855F7', '#7C3AED'],
+      ['#10B981', '#059669'],
+      ['#F59E0B', '#D97706'],
+    ];
+
     const maxMedia = 10;
-    const barW = 55;
-    const gap = 45;
-    const totalW = topProjetos.length * (barW + gap);
+    const barW = 60;
+    const gap = 50;
+    const totalW = topProjetos.length * (barW + gap) - gap;
     const startX = (W - totalW) / 2;
-    const baseY = H - 80;
-    const maxH = H - 170;
+    const baseY = H - 70;
+    const maxH = H - 150;
 
-    ctx.clearRect(0, 0, W, H);
+    let progress = 0;
+    const duration = 80;
 
-    // Fundo
-    const bg = ctx.createLinearGradient(0, 0, 0, H);
-    bg.addColorStop(0, '#f8f9ff');
-    bg.addColorStop(1, '#eef1f8');
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, W, H);
+    const draw = (prog) => {
+      ctx.clearRect(0, 0, W, H);
 
-    // Grade
-    ctx.strokeStyle = 'rgba(0,0,0,0.06)';
-    ctx.lineWidth = 1;
-    for (let i = 0; i <= 5; i++) {
-      const y = baseY - (maxH * i) / 5;
+      const bg = ctx.createLinearGradient(0, 0, W, H);
+      bg.addColorStop(0, '#0F1923');
+      bg.addColorStop(1, '#1A2535');
+      ctx.fillStyle = bg;
       ctx.beginPath();
-      ctx.moveTo(startX - 30, y);
-      ctx.lineTo(startX + totalW + 20, y);
-      ctx.stroke();
-
-      ctx.fillStyle = '#777';
-      ctx.font = '11px sans-serif';
-      ctx.textAlign = 'right';
-      ctx.fillText((i * 2).toString(), startX - 38, y + 4);
-    }
-
-    topProjetos.forEach((proj, i) => {
-      const x = startX + i * (barW + gap);
-      const barH = (proj.media / maxMedia) * maxH;
-      const cor = CORES[i % CORES.length];
-
-      // Barra principal (sem roundRect para maior compatibilidade)
-      ctx.fillStyle = cor;
-      ctx.fillRect(x, baseY - barH, barW, barH);
-
-      // Topo arredondado manual
-      ctx.beginPath();
-      ctx.roundRect(x, baseY - barH, barW, barH, [8, 8, 0, 0]); // se não funcionar, comente
+      ctx.roundRect(0, 0, W, H, 16);
       ctx.fill();
 
-      // Valor no topo
-      ctx.fillStyle = '#1A1A1A';
-      ctx.font = 'bold 15px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(proj.media.toString(), x + barW / 2, baseY - barH - 10);
+      for (let i = 0; i <= 5; i++) {
+        const y = baseY - (maxH * i) / 5;
+        const val = i * 2;
 
-      // Nome abaixo
-      ctx.fillStyle = '#444';
-      ctx.font = '11px sans-serif';
-      ctx.textAlign = 'center';
-      const nomeFormatado = proj.nome.length > 12 
-        ? proj.nome.substring(0, 12) + '...' 
-        : proj.nome;
-      ctx.fillText(nomeFormatado, x + barW / 2, baseY + 25);
-    });
+        ctx.beginPath();
+        ctx.strokeStyle = i === 0 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)';
+        ctx.lineWidth = i === 0 ? 1.5 : 1;
+        ctx.setLineDash(i === 0 ? [] : [4, 6]);
+        ctx.moveTo(startX - 20, y);
+        ctx.lineTo(startX + totalW + 20, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
 
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.font = '11px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(val.toString(), startX - 28, y + 4);
+      }
+
+      topProjetos.forEach((proj, i) => {
+        const x = startX + i * (barW + gap);
+        const targetH = (proj.media / maxMedia) * maxH;
+        const barH = targetH * Math.min(prog / duration, 1);
+        const [c1, c2] = GRADIENTS[i % GRADIENTS.length];
+
+        const glowGrad = ctx.createLinearGradient(x, baseY - barH, x + barW, baseY);
+        glowGrad.addColorStop(0, c1 + '22');
+        glowGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = glowGrad;
+        ctx.fillRect(x - 8, baseY - barH - 8, barW + 16, barH + 16);
+
+        const grad = ctx.createLinearGradient(x, baseY - barH, x, baseY);
+        grad.addColorStop(0, c1);
+        grad.addColorStop(1, c2 + 'AA');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.roundRect(x, baseY - barH, barW, barH, [8, 8, 0, 0]);
+        ctx.fill();
+
+        if (barH > 5) {
+          ctx.fillStyle = 'rgba(255,255,255,0.4)';
+          ctx.beginPath();
+          ctx.roundRect(x + 4, baseY - barH, barW - 8, 3, 2);
+          ctx.fill();
+        }
+
+        if (prog > duration * 0.7) {
+          const alpha = Math.min((prog - duration * 0.7) / (duration * 0.3), 1);
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = 'bold 16px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(proj.media.toString(), x + barW / 2, baseY - barH - 14);
+          ctx.globalAlpha = 1;
+        }
+
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        const nome = proj.nome.length > 10 ? proj.nome.substring(0, 10) + '…' : proj.nome;
+        ctx.fillText(nome, x + barW / 2, baseY + 22);
+      });
+    };
+
+    const animate = () => {
+      progress++;
+      draw(progress);
+      if (progress < duration) {
+        animRef.current = requestAnimationFrame(animate);
+      }
+    };
+
+    if (animRef.current) cancelAnimationFrame(animRef.current);
+    animate();
+
+    return () => cancelAnimationFrame(animRef.current);
   }, [topProjetos]);
 
   const cards = [
     { label: 'Usuários', valor: stats.usuarios, cor: '#003366', emoji: '👥' },
     { label: 'Projetos', valor: stats.projetos, cor: '#FF6B35', emoji: '📁' },
     { label: 'Turmas',  valor: stats.turmas,   cor: '#1A7A4A', emoji: '🎓' },
+  ];
+
+  const GRADIENTS_CSS = [
+    'linear-gradient(135deg, #FF6B35, #FF9A5C)',
+    'linear-gradient(135deg, #00C9FF, #0077B6)',
+    'linear-gradient(135deg, #A855F7, #7C3AED)',
+    'linear-gradient(135deg, #10B981, #059669)',
+    'linear-gradient(135deg, #F59E0B, #D97706)',
   ];
 
   return (
@@ -165,10 +210,12 @@ export default function Dashboard() {
         </div>
 
         <div style={styles.chartCard}>
-          <h2 style={styles.chartTitulo}>🏆 Top 5 Projetos Mais Avaliados</h2>
-          <p style={styles.chartSub}>
-            Média de notas por professores, coordenadores e empresas parceiras
-          </p>
+          <div style={styles.chartHeader}>
+            <div>
+              <h2 style={styles.chartTitulo}>🏆 Top 5 Projetos Mais Avaliados</h2>
+              <p style={styles.chartSub}>Média de notas por professores, coordenadores e empresas parceiras</p>
+            </div>
+          </div>
 
           {topProjetos.length === 0 ? (
             <div style={styles.emptyChart}>
@@ -180,17 +227,13 @@ export default function Dashboard() {
               <canvas
                 ref={canvasRef}
                 width={720}
-                height={420}
-                style={{ width: '100%', maxWidth: '720px', display: 'block', margin: '0 auto' }}
+                height={380}
+                style={{ width: '100%', maxWidth: '720px', display: 'block', margin: '0 auto', borderRadius: 16 }}
               />
-
               <div style={styles.legenda}>
                 {topProjetos.map((p, i) => (
                   <div key={i} style={styles.legendaItem}>
-                    <div style={{ 
-                      ...styles.legendaCor, 
-                      background: ['#003366', '#FF6B35', '#1A7A4A', '#6B21A8', '#B45309'][i] 
-                    }} />
+                    <div style={{ ...styles.legendaCor, background: GRADIENTS_CSS[i] }} />
                     <span style={styles.legendaTexto}>{p.nomeCompleto}</span>
                     <span style={styles.legendaMedia}>
                       {p.media} ⭐ ({p.avaliacoes} avaliações)
@@ -206,7 +249,6 @@ export default function Dashboard() {
   );
 }
 
-/* ==================== STYLES ==================== */
 const styles = {
   layout: { display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif' },
   main: { flex: 1, padding: 40, background: '#F8F7F5' },
@@ -218,10 +260,11 @@ const styles = {
   valor: { fontSize: 40, fontWeight: 700, margin: '8px 0 4px', color: '#1A1A1A' },
   cardLabel: { color: '#666', fontSize: 14, margin: 0 },
   chartCard: { background: '#fff', borderRadius: 16, padding: 32, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
+  chartHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
   chartTitulo: { fontSize: 20, fontWeight: 700, color: '#1A1A1A', margin: '0 0 4px' },
-  chartSub: { color: '#888', fontSize: 13, margin: '0 0 24px' },
+  chartSub: { color: '#888', fontSize: 13, margin: 0 },
   emptyChart: { textAlign: 'center', padding: '60px 0' },
-  legenda: { marginTop: 24, display: 'flex', flexDirection: 'column', gap: 10 },
+  legenda: { marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 },
   legendaItem: { display: 'flex', alignItems: 'center', gap: 12 },
   legendaCor: { width: 14, height: 14, borderRadius: 4, flexShrink: 0 },
   legendaTexto: { fontSize: 13.5, color: '#333', flex: 1 },
