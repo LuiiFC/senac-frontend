@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-https://senac-backend-qxk7.onrender.com/api
+const api = axios.create({ baseURL: 'https://senac-backend-qxk7.onrender.com/api' });
 
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('token');
