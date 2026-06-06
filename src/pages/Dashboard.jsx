@@ -2,69 +2,17 @@ import { useEffect, useState, useRef } from 'react';
 import Sidebar from '../components/Sidebar';
 import api from '../api/api';
 
-export default function Dashboard() {
-  const [stats, setStats] = useState({ usuarios: 0, projetos: 0, turmas: 0 });
-  const [topProjetos, setTopProjetos] = useState([]);
-  const canvasRef = useRef(null);
-  const animRef = useRef(null);
+function parseJwt(token) {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch {
+    return null;
+  }
+}
 
+function BarChart({ dados, canvasRef, animRef }) {
   useEffect(() => {
-    const carregar = async () => {
-      try {
-        const [u, p, t] = await Promise.all([
-          api.get('/usuarios'),
-          api.get('/projetos'),
-          api.get('/turmas'),
-        ]);
-
-        setStats({
-          usuarios: u.data.length,
-          projetos: p.data.length,
-          turmas: t.data.length,
-        });
-
-        const projetos = p.data;
-
-        const avaliacoesPorProjeto = await Promise.all(
-          projetos.map(async (proj) => {
-            try {
-              const av = await api.get(`/avaliacoes/${proj.id}`);
-              const avaliacoesComNota = av.data.filter((a) =>
-                a.nota !== null &&
-                ['professor', 'coordenador', 'empresa_parceira'].includes(a.tipo_avaliador)
-              );
-              const media = avaliacoesComNota.length
-                ? avaliacoesComNota.reduce((s, a) => s + a.nota, 0) / avaliacoesComNota.length
-                : 0;
-              return {
-                nome: proj.titulo.length > 18 ? proj.titulo.substring(0, 18) + '...' : proj.titulo,
-                nomeCompleto: proj.titulo,
-                media: parseFloat(media.toFixed(1)),
-                avaliacoes: avaliacoesComNota.length,
-                curso: proj.turmas?.curso || proj.curso || '—',
-              };
-            } catch {
-              return null;
-            }
-          })
-        );
-
-        const top5 = avaliacoesPorProjeto
-          .filter((p) => p && p.avaliacoes > 0)
-          .sort((a, b) => b.media - a.media)
-          .slice(0, 5);
-
-        setTopProjetos(top5);
-      } catch (err) {
-        console.error('Erro ao carregar dashboard:', err);
-      }
-    };
-    carregar();
-  }, []);
-
-  useEffect(() => {
-    if (!canvasRef.current || topProjetos.length === 0) return;
-
+    if (!canvasRef.current || dados.length === 0) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const W = canvas.width;
@@ -81,7 +29,7 @@ export default function Dashboard() {
     const maxMedia = 10;
     const barW = 60;
     const gap = 50;
-    const totalW = topProjetos.length * (barW + gap) - gap;
+    const totalW = dados.length * (barW + gap) - gap;
     const startX = (W - totalW) / 2;
     const baseY = H - 70;
     const maxH = H - 150;
@@ -91,7 +39,6 @@ export default function Dashboard() {
 
     const draw = (prog) => {
       ctx.clearRect(0, 0, W, H);
-
       const bg = ctx.createLinearGradient(0, 0, W, H);
       bg.addColorStop(0, '#0F1923');
       bg.addColorStop(1, '#1A2535');
@@ -103,7 +50,6 @@ export default function Dashboard() {
       for (let i = 0; i <= 5; i++) {
         const y = baseY - (maxH * i) / 5;
         const val = i * 2;
-
         ctx.beginPath();
         ctx.strokeStyle = i === 0 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)';
         ctx.lineWidth = i === 0 ? 1.5 : 1;
@@ -112,14 +58,13 @@ export default function Dashboard() {
         ctx.lineTo(startX + totalW + 20, y);
         ctx.stroke();
         ctx.setLineDash([]);
-
         ctx.fillStyle = 'rgba(255,255,255,0.35)';
         ctx.font = '11px monospace';
         ctx.textAlign = 'right';
         ctx.fillText(val.toString(), startX - 28, y + 4);
       }
 
-      topProjetos.forEach((proj, i) => {
+      dados.forEach((proj, i) => {
         const x = startX + i * (barW + gap);
         const targetH = (proj.media / maxMedia) * maxH;
         const barH = targetH * Math.min(prog / duration, 1);
@@ -167,21 +112,118 @@ export default function Dashboard() {
     const animate = () => {
       progress++;
       draw(progress);
-      if (progress < duration) {
-        animRef.current = requestAnimationFrame(animate);
-      }
+      if (progress < duration) animRef.current = requestAnimationFrame(animate);
     };
 
     if (animRef.current) cancelAnimationFrame(animRef.current);
     animate();
-
     return () => cancelAnimationFrame(animRef.current);
-  }, [topProjetos]);
+  }, [dados]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={720}
+      height={380}
+      style={{ width: '100%', maxWidth: '720px', display: 'block', margin: '0 auto', borderRadius: 16 }}
+    />
+  );
+}
+
+export default function Dashboard() {
+  const [stats, setStats] = useState({ usuarios: 0, projetos: 0, turmas: 0 });
+  const [topGlobal, setTopGlobal] = useState([]);
+  const [topCurso, setTopCurso] = useState([]);
+  const [abaAtiva, setAbaAtiva] = useState('global');
+  const [usuarioCurso, setUsuarioCurso] = useState('');
+  const [usuarioTipo, setUsuarioTipo] = useState('');
+
+  const canvasGlobalRef = useRef(null);
+  const animGlobalRef = useRef(null);
+  const canvasCursoRef = useRef(null);
+  const animCursoRef = useRef(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const payload = parseJwt(token);
+    const curso = payload?.curso_vinculo || payload?.curso || '';
+    const tipo = payload?.tipo || '';
+    setUsuarioCurso(curso);
+    setUsuarioTipo(tipo);
+
+    const carregar = async () => {
+      try {
+        const [u, p, t] = await Promise.all([
+          api.get('/usuarios'),
+          api.get('/projetos'),
+          api.get('/turmas'),
+        ]);
+
+        setStats({
+          usuarios: u.data.length,
+          projetos: p.data.length,
+          turmas: t.data.length,
+        });
+
+        const todosProjetos = p.data;
+
+        const comAvaliacao = await Promise.all(
+          todosProjetos.map(async (proj) => {
+            try {
+              const av = await api.get(`/avaliacoes/${proj.id}`);
+              const avaliacoesComNota = av.data.filter((a) =>
+                a.nota !== null &&
+                ['professor', 'coordenador', 'empresa_parceira'].includes(a.tipo_avaliador)
+              );
+              const media = avaliacoesComNota.length
+                ? avaliacoesComNota.reduce((s, a) => s + a.nota, 0) / avaliacoesComNota.length
+                : 0;
+              return {
+                nome: proj.titulo.length > 18 ? proj.titulo.substring(0, 18) + '...' : proj.titulo,
+                nomeCompleto: proj.titulo,
+                media: parseFloat(media.toFixed(1)),
+                avaliacoes: avaliacoesComNota.length,
+                curso: proj.turmas?.curso || '—',
+              };
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        const validos = comAvaliacao.filter((p) => p && p.avaliacoes > 0);
+
+        // Melhor projeto de cada curso
+        const porCurso = {};
+        validos.forEach((proj) => {
+          if (!porCurso[proj.curso] || proj.media > porCurso[proj.curso].media) {
+            porCurso[proj.curso] = proj;
+          }
+        });
+        setTopGlobal(Object.values(porCurso).sort((a, b) => b.media - a.media));
+
+        // Top 5 do curso do usuário
+        if (curso) {
+          const cursoData = validos
+            .filter((proj) => proj.curso === curso)
+            .sort((a, b) => b.media - a.media)
+            .slice(0, 5);
+          setTopCurso(cursoData);
+        }
+      } catch (err) {
+        console.error('Erro ao carregar dashboard:', err);
+      }
+    };
+
+    carregar();
+  }, []);
+
+  const mostrarAbaCurso = ['aluno', 'professor', 'coordenador'].includes(usuarioTipo);
 
   const cards = [
     { label: 'Usuários', valor: stats.usuarios, cor: '#003366', emoji: '👥' },
     { label: 'Projetos', valor: stats.projetos, cor: '#FF6B35', emoji: '📁' },
-    { label: 'Turmas',  valor: stats.turmas,   cor: '#1A7A4A', emoji: '🎓' },
+    { label: 'Turmas', valor: stats.turmas, cor: '#1A7A4A', emoji: '🎓' },
   ];
 
   const GRADIENTS_CSS = [
@@ -191,6 +233,10 @@ export default function Dashboard() {
     'linear-gradient(135deg, #10B981, #059669)',
     'linear-gradient(135deg, #F59E0B, #D97706)',
   ];
+
+  const dadosAtivos = abaAtiva === 'global' ? topGlobal : topCurso;
+  const canvasAtivo = abaAtiva === 'global' ? canvasGlobalRef : canvasCursoRef;
+  const animAtivo = abaAtiva === 'global' ? animGlobalRef : animCursoRef;
 
   return (
     <div style={styles.layout}>
@@ -210,31 +256,55 @@ export default function Dashboard() {
         </div>
 
         <div style={styles.chartCard}>
+          <div style={styles.abas}>
+            <button
+              style={{ ...styles.aba, ...(abaAtiva === 'global' ? styles.abaAtiva : {}) }}
+              onClick={() => setAbaAtiva('global')}
+            >
+              🏫 Ranking da Instituição
+            </button>
+            {mostrarAbaCurso && (
+              <button
+                style={{ ...styles.aba, ...(abaAtiva === 'curso' ? styles.abaAtiva : {}) }}
+                onClick={() => setAbaAtiva('curso')}
+              >
+                🎓 Top do Meu Curso
+              </button>
+            )}
+          </div>
+
           <div style={styles.chartHeader}>
             <div>
-              <h2 style={styles.chartTitulo}>🏆 Top 5 Projetos Mais Avaliados</h2>
-              <p style={styles.chartSub}>Média de notas por professores, coordenadores e empresas parceiras</p>
+              {abaAtiva === 'global' ? (
+                <>
+                  <h2 style={styles.chartTitulo}>🏆 Melhor Projeto por Curso</h2>
+                  <p style={styles.chartSub}>O projeto mais bem avaliado de cada curso da instituição</p>
+                </>
+              ) : (
+                <>
+                  <h2 style={styles.chartTitulo}>🎯 Top 5 do Curso: {usuarioCurso}</h2>
+                  <p style={styles.chartSub}>Os 5 projetos mais bem avaliados do seu curso</p>
+                </>
+              )}
             </div>
           </div>
 
-          {topProjetos.length === 0 ? (
+          {dadosAtivos.length === 0 ? (
             <div style={styles.emptyChart}>
               <p style={{ fontSize: 48, marginBottom: 12 }}>📊</p>
               <p style={{ color: '#888' }}>Nenhuma avaliação registrada ainda.</p>
             </div>
           ) : (
             <>
-              <canvas
-                ref={canvasRef}
-                width={720}
-                height={380}
-                style={{ width: '100%', maxWidth: '720px', display: 'block', margin: '0 auto', borderRadius: 16 }}
-              />
+              <BarChart dados={dadosAtivos} canvasRef={canvasAtivo} animRef={animAtivo} />
               <div style={styles.legenda}>
-                {topProjetos.map((p, i) => (
+                {dadosAtivos.map((p, i) => (
                   <div key={i} style={styles.legendaItem}>
                     <div style={{ ...styles.legendaCor, background: GRADIENTS_CSS[i] }} />
                     <span style={styles.legendaTexto}>{p.nomeCompleto}</span>
+                    {abaAtiva === 'global' && (
+                      <span style={styles.legendaCurso}>{p.curso}</span>
+                    )}
                     <span style={styles.legendaMedia}>
                       {p.media} ⭐ ({p.avaliacoes} avaliações)
                     </span>
@@ -260,6 +330,15 @@ const styles = {
   valor: { fontSize: 40, fontWeight: 700, margin: '8px 0 4px', color: '#1A1A1A' },
   cardLabel: { color: '#666', fontSize: 14, margin: 0 },
   chartCard: { background: '#fff', borderRadius: 16, padding: 32, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
+  abas: { display: 'flex', gap: 12, marginBottom: 24 },
+  aba: {
+    padding: '10px 20px', borderRadius: 10, border: '2px solid #e5e7eb',
+    background: 'transparent', cursor: 'pointer', fontSize: 14, fontWeight: 600,
+    color: '#666', transition: 'all 0.2s',
+  },
+  abaAtiva: {
+    background: '#FF6B35', borderColor: '#FF6B35', color: '#fff',
+  },
   chartHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
   chartTitulo: { fontSize: 20, fontWeight: 700, color: '#1A1A1A', margin: '0 0 4px' },
   chartSub: { color: '#888', fontSize: 13, margin: 0 },
@@ -268,5 +347,6 @@ const styles = {
   legendaItem: { display: 'flex', alignItems: 'center', gap: 12 },
   legendaCor: { width: 14, height: 14, borderRadius: 4, flexShrink: 0 },
   legendaTexto: { fontSize: 13.5, color: '#333', flex: 1 },
+  legendaCurso: { fontSize: 12, color: '#888', background: '#f3f4f6', padding: '2px 8px', borderRadius: 6 },
   legendaMedia: { fontSize: 13, fontWeight: 700, color: '#FF6B35' },
 };
