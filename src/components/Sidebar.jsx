@@ -14,7 +14,7 @@ export default function Sidebar() {
     if (usuario?.tipo === 'aluno') return '📁 Meus Projetos';
     if (usuario?.tipo === 'professor') return '📁 Projetos das Turmas';
     if (usuario?.tipo === 'empresa_parceira') return '📁 Projetos';
-    return '📁 Projetos do Curso';
+    return '📁 Projeto dos Cursos';
   };
 
   const links = [
