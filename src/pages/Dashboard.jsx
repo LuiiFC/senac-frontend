@@ -248,6 +248,30 @@ export default function Dashboard() {
     </div>
   );
 }
+const avaliacoesPorProjeto = await Promise.all(
+  projetos.map(async (proj) => {
+    try {
+      const av = await api.get(`/avaliacoes/${proj.id}`);
+      const avaliacoesComNota = av.data.filter((a) =>
+        a.nota !== null &&
+        ['professor', 'coordenador', 'empresa_parceira'].includes(a.tipo_avaliador)
+      );
+      const media = avaliacoesComNota.length
+        ? avaliacoesComNota.reduce((s, a) => s + a.nota, 0) / avaliacoesComNota.length
+        : 0;
+      return {
+        nome: proj.titulo.length > 18 ? proj.titulo.substring(0, 18) + '...' : proj.titulo,
+        nomeCompleto: proj.titulo,
+        media: parseFloat(media.toFixed(1)),
+        avaliacoes: avaliacoesComNota.length,
+        curso: proj.turmas?.curso || proj.curso || '—',
+      };
+    } catch (err) {
+      console.error(`Erro no projeto ${proj.id} - ${proj.titulo}:`, err); // ← adicione isso
+      return null;
+    }
+  })
+);
 
 const styles = {
   layout: { display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif' },
