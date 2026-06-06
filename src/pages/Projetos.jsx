@@ -9,6 +9,7 @@ export default function Projetos() {
   const navigate = useNavigate();
   const [projetos, setProjetos] = useState([]);
   const [turmas, setTurmas] = useState([]);
+  const [busca, setBusca] = useState('');
   const [mostrarForm, setMostrarForm] = useState(false);
   const [arquivo, setArquivo] = useState(null);
   const [uploadando, setUploadando] = useState(false);
@@ -21,7 +22,7 @@ export default function Projetos() {
   const getTitulo = () => {
     if (usuario?.tipo === 'aluno') return 'Meus Projetos';
     if (usuario?.tipo === 'professor') return 'Projetos das Turmas';
-    return 'Projetos do Curso';
+    return 'Projeto dos Cursos';
   };
 
   const carregar = async () => {
@@ -38,6 +39,17 @@ export default function Projetos() {
   };
 
   useEffect(() => { carregar(); }, []);
+
+  const projetosFiltrados = projetos.filter(p => {
+    const q = busca.toLowerCase();
+    return (
+      p.titulo?.toLowerCase().includes(q) ||
+      p.descricao?.toLowerCase().includes(q) ||
+      p.turmas?.curso?.toLowerCase().includes(q) ||
+      p.turmas?.nome?.toLowerCase().includes(q) ||
+      p.usuarios?.nome?.toLowerCase().includes(q)
+    );
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -92,6 +104,20 @@ export default function Projetos() {
               <button style={styles.btn} onClick={() => setMostrarForm(!mostrarForm)}>+ Enviar Projeto</button>
             )}
           </div>
+        </div>
+
+        {/* Barra de pesquisa */}
+        <div style={styles.searchBox}>
+          <span style={styles.searchIcon}>🔍</span>
+          <input
+            style={styles.searchInput}
+            placeholder="Buscar por título, curso, turma ou professor..."
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+          />
+          {busca && (
+            <button style={styles.searchClear} onClick={() => setBusca('')}>✕</button>
+          )}
         </div>
 
         {mostrarForm && (
@@ -149,15 +175,23 @@ export default function Projetos() {
           </form>
         )}
 
-        {projetos.length === 0 ? (
+        {busca && (
+          <p style={styles.resultadoInfo}>
+            {projetosFiltrados.length} resultado{projetosFiltrados.length !== 1 ? 's' : ''} para "{busca}"
+          </p>
+        )}
+
+        {projetosFiltrados.length === 0 ? (
           <div style={styles.emptyState}>
-            <p style={{ fontSize: 40 }}>📁</p>
-            <p style={{ fontSize: 16, fontWeight: 600, color: '#555' }}>Nenhum projeto encontrado</p>
-            {podeEnviar && <p style={{ color: '#888', fontSize: 14 }}>Clique em "+ Enviar Projeto" para começar</p>}
+            <p style={{ fontSize: 40 }}>{busca ? '🔍' : '📁'}</p>
+            <p style={{ fontSize: 16, fontWeight: 600, color: '#555' }}>
+              {busca ? 'Nenhum projeto encontrado para essa busca' : 'Nenhum projeto encontrado'}
+            </p>
+            {podeEnviar && !busca && <p style={{ color: '#888', fontSize: 14 }}>Clique em "+ Enviar Projeto" para começar</p>}
           </div>
         ) : (
           <div style={styles.cards}>
-            {projetos.map(p => (
+            {projetosFiltrados.map(p => (
               <div key={p.id} style={styles.card} onClick={() => navigate(`/projetos/${p.id}`)}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <p style={styles.cardTitulo}>{p.titulo}</p>
@@ -181,9 +215,14 @@ export default function Projetos() {
 const styles = {
   layout: { display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif' },
   main: { flex: 1, padding: 40, background: '#F8F7F5' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   titulo: { fontSize: 28, fontWeight: 700, color: '#1A1A1A', margin: 0 },
   btn: { background: '#FF6B35', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', cursor: 'pointer', fontSize: 14, fontWeight: 600 },
+  searchBox: { display: 'flex', alignItems: 'center', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '10px 14px', marginBottom: 20, gap: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' },
+  searchIcon: { fontSize: 16, flexShrink: 0 },
+  searchInput: { flex: 1, border: 'none', outline: 'none', fontSize: 14, color: '#1A1A1A', background: 'transparent' },
+  searchClear: { background: 'none', border: 'none', cursor: 'pointer', color: '#999', fontSize: 14, padding: '0 4px' },
+  resultadoInfo: { fontSize: 13, color: '#888', marginBottom: 12 },
   form: { background: '#fff', borderRadius: 12, padding: 24, marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 16 },
   label: { display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 },

@@ -8,6 +8,7 @@ export default function Turmas() {
   const [turmas, setTurmas] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [alunosSemTurma, setAlunosSemTurma] = useState([]);
+  const [busca, setBusca] = useState('');
   const [form, setForm] = useState({ nome: '', curso: '', ano: '', semestre: '1', coordenador_id: '' });
   const [mostrarForm, setMostrarForm] = useState(false);
   const [turmaExpandida, setTurmaExpandida] = useState(null);
@@ -32,10 +33,20 @@ export default function Turmas() {
     }
   };
 
- useEffect(() => {
+  useEffect(() => {
     const init = async () => { await carregar(); };
     init();
   }, []);
+
+  const turmasFiltradas = turmas.filter(t => {
+    const q = busca.toLowerCase();
+    return (
+      t.nome?.toLowerCase().includes(q) ||
+      t.curso?.toLowerCase().includes(q) ||
+      t.ano?.toString().includes(q) ||
+      t.usuarios?.nome?.toLowerCase().includes(q)
+    );
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -77,6 +88,20 @@ export default function Turmas() {
           )}
         </div>
 
+        {/* Barra de pesquisa */}
+        <div style={styles.searchBox}>
+          <span style={styles.searchIcon}>🔍</span>
+          <input
+            style={styles.searchInput}
+            placeholder="Buscar por nome, curso, ano ou coordenador..."
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+          />
+          {busca && (
+            <button style={styles.searchClear} onClick={() => setBusca('')}>✕</button>
+          )}
+        </div>
+
         {mostrarForm && (
           <form onSubmit={handleSubmit} style={styles.form}>
             <h3 style={{ marginBottom: 16 }}>Cadastrar Turma</h3>
@@ -115,8 +140,14 @@ export default function Turmas() {
           </div>
         )}
 
+        {busca && (
+          <p style={styles.resultadoInfo}>
+            {turmasFiltradas.length} resultado{turmasFiltradas.length !== 1 ? 's' : ''} para "{busca}"
+          </p>
+        )}
+
         <div style={styles.cards}>
-          {turmas.map(t => (
+          {turmasFiltradas.map(t => (
             <div key={t.id} style={styles.card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
@@ -135,7 +166,6 @@ export default function Turmas() {
               {turmaExpandida === t.id && (
                 <div style={styles.expandBox}>
                   <p style={styles.expandTitulo}>👥 Alunos da turma</p>
-
                   <div style={styles.addAlunoBox}>
                     <select style={{ ...styles.input, flex: 1 }} value={alunoSelecionado} onChange={e => setAlunoSelecionado(e.target.value)}>
                       <option value="">Selecione um aluno para adicionar...</option>
@@ -143,7 +173,6 @@ export default function Turmas() {
                     </select>
                     <button style={styles.btn} onClick={() => adicionarAluno(t.id)}>+ Adicionar</button>
                   </div>
-
                   {matriculas.length === 0 ? (
                     <p style={styles.vazio}>Nenhum aluno nesta turma ainda.</p>
                   ) : (
@@ -163,6 +192,15 @@ export default function Turmas() {
               )}
             </div>
           ))}
+
+          {turmasFiltradas.length === 0 && (
+            <div style={styles.emptyState}>
+              <p style={{ fontSize: 40 }}>{busca ? '🔍' : '🎓'}</p>
+              <p style={{ fontSize: 16, fontWeight: 600, color: '#555' }}>
+                {busca ? 'Nenhuma turma encontrada para essa busca' : 'Nenhuma turma encontrada'}
+              </p>
+            </div>
+          )}
         </div>
       </main>
     </div>
@@ -172,9 +210,14 @@ export default function Turmas() {
 const styles = {
   layout: { display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif' },
   main: { flex: 1, padding: 40, background: '#F8F7F5' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   titulo: { fontSize: 28, fontWeight: 700, color: '#1A1A1A', margin: 0 },
   btn: { background: '#FF6B35', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', cursor: 'pointer', fontSize: 14, fontWeight: 600 },
+  searchBox: { display: 'flex', alignItems: 'center', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '10px 14px', marginBottom: 20, gap: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' },
+  searchIcon: { fontSize: 16, flexShrink: 0 },
+  searchInput: { flex: 1, border: 'none', outline: 'none', fontSize: 14, color: '#1A1A1A', background: 'transparent' },
+  searchClear: { background: 'none', border: 'none', cursor: 'pointer', color: '#999', fontSize: 14, padding: '0 4px' },
+  resultadoInfo: { fontSize: 13, color: '#888', marginBottom: 12 },
   form: { background: '#fff', borderRadius: 12, padding: 24, marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16, marginBottom: 16 },
   label: { display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 },
@@ -198,4 +241,5 @@ const styles = {
   aprovado: { color: '#1A7A4A', fontSize: 13, fontWeight: 600 },
   btnAprovar: { background: '#1A7A4A', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontSize: 12, fontWeight: 600 },
   vazio: { color: '#999', fontSize: 13, textAlign: 'center', padding: '16px 0' },
+  emptyState: { textAlign: 'center', padding: '60px 0' },
 };

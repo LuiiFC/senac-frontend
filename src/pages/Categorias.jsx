@@ -9,6 +9,7 @@ export default function Categorias() {
   const navigate = useNavigate();
   const [categorias, setCategorias] = useState([]);
   const [projetos, setProjetos] = useState([]);
+  const [busca, setBusca] = useState('');
   const [form, setForm] = useState({ nome: '', curso: '', descricao: '' });
   const [mostrarForm, setMostrarForm] = useState(false);
   const [categoriaAberta, setCategoriaAberta] = useState(null);
@@ -27,6 +28,20 @@ export default function Categorias() {
     const init = async () => { await carregar(); };
     init();
   }, []);
+
+  const categoriasFiltradas = categorias.filter(cat => {
+    const q = busca.toLowerCase();
+    if (cat.nome?.toLowerCase().includes(q)) return true;
+    if (cat.curso?.toLowerCase().includes(q)) return true;
+    if (cat.descricao?.toLowerCase().includes(q)) return true;
+    // também filtra se algum projeto dentro bate
+    const projetosDaCat = projetos.filter(p => p.categoria_id === cat.id);
+    return projetosDaCat.some(p => p.titulo?.toLowerCase().includes(q));
+  });
+
+  const projetosSemCategoriaFiltrados = projetos
+    .filter(p => !p.categoria_id)
+    .filter(p => !busca || p.titulo?.toLowerCase().includes(busca.toLowerCase()) || p.turmas?.curso?.toLowerCase().includes(busca.toLowerCase()));
 
   const handleCriar = async (e) => {
     e.preventDefault();
@@ -49,21 +64,20 @@ export default function Categorias() {
     carregar();
   };
 
-const handleDragStart = (e, projetoId) => {
-  if (usuario?.tipo === 'aluno' || usuario?.tipo === 'professor') return;
-  e.dataTransfer.setData('projetoId', projetoId);
-};
+  const handleDragStart = (e, projetoId) => {
+    if (usuario?.tipo === 'aluno' || usuario?.tipo === 'professor') return;
+    e.dataTransfer.setData('projetoId', projetoId);
+  };
 
-const handleDrop = async (e, categoriaId) => {
-  if (usuario?.tipo === 'aluno' || usuario?.tipo === 'professor') return;
-  e.preventDefault();
-  setDragOver(null);
-  const projetoId = e.dataTransfer.getData('projetoId');
-  if (!projetoId) return;
-  await api.patch(`/projetos/${projetoId}/categoria`, { categoria_id: categoriaId });
-  carregar();
-};
-
+  const handleDrop = async (e, categoriaId) => {
+    if (usuario?.tipo === 'aluno' || usuario?.tipo === 'professor') return;
+    e.preventDefault();
+    setDragOver(null);
+    const projetoId = e.dataTransfer.getData('projetoId');
+    if (!projetoId) return;
+    await api.patch(`/projetos/${projetoId}/categoria`, { categoria_id: categoriaId });
+    carregar();
+  };
 
   const handleRemoverCategoria = async (projetoId, e) => {
     e.stopPropagation();
@@ -73,8 +87,6 @@ const handleDrop = async (e, categoriaId) => {
 
   const projetosDaCategoria = (categoriaId) =>
     projetos.filter(p => p.categoria_id === categoriaId);
-
-  const projetosSemCategoria = projetos.filter(p => !p.categoria_id);
 
   return (
     <div style={styles.layout}>
@@ -86,6 +98,20 @@ const handleDrop = async (e, categoriaId) => {
             <button style={styles.btn} onClick={() => setMostrarForm(!mostrarForm)}>
               + Nova Pasta
             </button>
+          )}
+        </div>
+
+        {/* Barra de pesquisa */}
+        <div style={styles.searchBox}>
+          <span style={styles.searchIcon}>🔍</span>
+          <input
+            style={styles.searchInput}
+            placeholder="Buscar por pasta, curso ou projeto..."
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+          />
+          {busca && (
+            <button style={styles.searchClear} onClick={() => setBusca('')}>✕</button>
           )}
         </div>
 
@@ -110,12 +136,18 @@ const handleDrop = async (e, categoriaId) => {
           </form>
         )}
 
-        {/* Projetos sem categoria — área de arrastar */}
-        {projetosSemCategoria.length > 0 && (
+        {busca && (
+          <p style={styles.resultadoInfo}>
+            {categoriasFiltradas.length} pasta{categoriasFiltradas.length !== 1 ? 's' : ''} encontrada{categoriasFiltradas.length !== 1 ? 's' : ''} para "{busca}"
+          </p>
+        )}
+
+        {/* Projetos sem categoria */}
+        {projetosSemCategoriaFiltrados.length > 0 && (
           <div style={{ marginBottom: 24 }}>
             <h2 style={styles.sectionTitulo}>📋 Projetos disponíveis — arraste para uma pasta</h2>
             <div style={styles.projetosDisponiveis}>
-              {projetosSemCategoria.map(p => (
+              {projetosSemCategoriaFiltrados.map(p => (
                 <div
                   key={p.id}
                   draggable
@@ -139,7 +171,7 @@ const handleDrop = async (e, categoriaId) => {
 
         {/* Pastas */}
         <div style={styles.pastas}>
-          {categorias.map(cat => (
+          {categoriasFiltradas.map(cat => (
             <div
               key={cat.id}
               style={{ ...styles.pasta, ...(dragOver === cat.id ? styles.pastaDestaque : {}) }}
@@ -204,11 +236,13 @@ const handleDrop = async (e, categoriaId) => {
           ))}
         </div>
 
-        {categorias.length === 0 && (
+        {categoriasFiltradas.length === 0 && (
           <div style={styles.emptyState}>
-            <p style={{ fontSize: 40 }}>📁</p>
-            <p style={styles.emptyText}>Nenhuma pasta criada ainda.</p>
-            {usuario?.tipo === 'coordenador' && (
+            <p style={{ fontSize: 40 }}>{busca ? '🔍' : '📁'}</p>
+            <p style={styles.emptyText}>
+              {busca ? 'Nenhuma pasta encontrada para essa busca' : 'Nenhuma pasta criada ainda.'}
+            </p>
+            {usuario?.tipo === 'coordenador' && !busca && (
               <p style={styles.emptySub}>Clique em "+ Nova Pasta" para começar.</p>
             )}
           </div>
@@ -221,9 +255,14 @@ const handleDrop = async (e, categoriaId) => {
 const styles = {
   layout: { display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif' },
   main: { flex: 1, padding: 40, background: '#F8F7F5' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   titulo: { fontSize: 28, fontWeight: 700, color: '#1A1A1A', margin: 0 },
   btn: { background: '#FF6B35', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', cursor: 'pointer', fontSize: 14, fontWeight: 600 },
+  searchBox: { display: 'flex', alignItems: 'center', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '10px 14px', marginBottom: 20, gap: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' },
+  searchIcon: { fontSize: 16, flexShrink: 0 },
+  searchInput: { flex: 1, border: 'none', outline: 'none', fontSize: 14, color: '#1A1A1A', background: 'transparent' },
+  searchClear: { background: 'none', border: 'none', cursor: 'pointer', color: '#999', fontSize: 14, padding: '0 4px' },
+  resultadoInfo: { fontSize: 13, color: '#888', marginBottom: 12 },
   form: { background: '#fff', borderRadius: 12, padding: 24, marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 16 },
   label: { display: 'block', fontSize: 12, fontWeight: 600, color: '#555', marginBottom: 4 },
