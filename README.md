@@ -1,12 +1,12 @@
 # SENAC Integrated Projects System
 
 The team:
-Sillvoney
-Pedro Ruan
-Debora Rafaelle
-Half Ukan
-Cristiano
-Luis Felipe
+Sillvoney,
+Pedro Ruan,
+Debora Rafaelle,
+Half Ukan,
+Cristiano,
+Luis Felipe.
 
 ## About the Project
 
